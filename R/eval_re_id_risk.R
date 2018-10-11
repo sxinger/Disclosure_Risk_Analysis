@@ -86,7 +86,7 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
     #--marketer attacker model
     mmod<-microaggregation(subset,
                            method="mdav",
-                           aggr=100) #for better speed
+                           aggr=20) #for better speed
     # mmod<-mafast(subset,variables=vars,aggr=10) #faster performance--not always result in meaningful clusters
     if(verb){
       cat("...marketer attacker model done.\n")
@@ -98,10 +98,10 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
     r2<-risk2(fit_cnt, subset1$EC)/n # 2. estimates the number of correct matches of sample uniques
     
     rk1<-sum(as.numeric(subset1$counts == 1) * r1) #disclosure risk model1 - uniquness
-    rk2<-sum(as.numeric(subset1$counts == 1) * r2) #disclosure risk model2 - success
-    rk3<-dRisk(obj=subset,xm=mmod$mx)              #disclosure risk model3 - adjusted for continuous variable
-    rk4<-sum(indiv_rk)                             #disclosure risk model4 - global risk
-    rk5<-sum((indiv_rk >= max(0.1,rk_bd)))         #disclosure risk model5 - records at risk
+    rk2<-dRisk(obj=subset,xm=mmod$mx)              #disclosure risk model3 - uniquness adjusted for continuous variable
+    rk3<-sum(as.numeric(subset1$counts == 1) * r2) #disclosure risk model2 - success rate
+    rk4<-sum((indiv_rk >= max(0.1,rk_bd)))         #disclosure risk model5 - records at risk
+    rk5<-sum(indiv_rk)                             #disclosure risk model4 - global risk
     rk6<-max(indiv_rk)                             #disclosure risk model6 - worst-case senario
     cat("...risk score calculation done.\n")
     
@@ -120,9 +120,12 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
   }
   
   #--calculate confidence interval
-  risk_df<-data.frame(risk1=risk1_vec[order(risk1_vec)],
-                      risk2=risk2_vec[order(risk2_vec)],
-                      risk3=risk3_vec[order(risk3_vec)])
+  risk_df<-data.frame(risk1=risk1_vec,
+                      risk2=risk2_vec,
+                      risk3=risk3_vec,
+                      risk4=risk4_vec,
+                      risk5=risk5_vec,
+                      risk6=risk6_vec)
 
   return(risk_df)
 }
