@@ -1,0 +1,12 @@
+---
+title: "Reidentification Risk Analysis"
+author: "xsong"
+date: "10/10/2018"
+output: html_document
+  params:
+    dataset: "./data/"
+---
+
+## Reidentifiaction Risk Analysis ##
+
+This report gives the final results
