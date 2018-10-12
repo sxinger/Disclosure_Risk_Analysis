@@ -98,10 +98,10 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
     r2<-risk2(fit_cnt, subset1$EC)/n # 2. estimates the number of correct matches of sample uniques
     
     rk1<-sum(as.numeric(subset1$counts == 1) * r1) #disclosure risk model1 - uniquness
-    rk2<-dRisk(obj=subset,xm=mmod$mx)              #disclosure risk model3 - uniquness adjusted for continuous variable
-    rk3<-sum(as.numeric(subset1$counts == 1) * r2) #disclosure risk model2 - success rate
-    rk4<-sum((indiv_rk >= max(0.1,rk_bd)))         #disclosure risk model5 - records at risk
-    rk5<-sum(indiv_rk)                             #disclosure risk model4 - global risk
+    rk2<-dRisk(obj=subset,xm=mmod$mx)              #disclosure risk model2 - uniquness adjusted for continuous variable
+    rk3<-sum(as.numeric(subset1$counts == 1) * r2) #disclosure risk model3 - success rate
+    rk4<-sum((indiv_rk >= max(0.1,rk_bd)))         #disclosure risk model4 - records at risk
+    rk5<-sum(indiv_rk)                             #disclosure risk model5 - global risk
     rk6<-max(indiv_rk)                             #disclosure risk model6 - worst-case senario
     cat("...risk score calculation done.\n")
     

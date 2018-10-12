@@ -5,10 +5,49 @@ date: "10/10/2018"
 output: html_document
 ---
 
-## Reidentifiaction Risk Analysis ##
+### Reidentifiaction Risk Analysis ###
 
-This is the final report of 
-```{r}
+This document reports disclosure risks for 4 EHR data sets of Acute Kidney Injury (AKI) patients over 10 years at KU medical center with different observation points. 
+
+***
+
+#### Measuring the Re-identification/Disclosure Risk ####
+6 measures for re-identification risk, inspired by Statistical Disclosure Control([sdcMicro]), are calculated and reported for all of the data sets. The 6 disclodure risk measures will be described and explained in the following sections.
+
+[sdcMicro]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
+
+***
+
+##### Measure 1 - Uniqueness #####
+"Uniqueness" measures the estimated percentage of unique records within the underlying population from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure.
+
+***
+
+##### Measure 2 - Adjusted Uniqueness #####
+Given the high dimension of data set (1,287 variables), Measure 1 tends to overestimate the overall "uniqueness" of a dataset. A less conservative measure of "uniqueness" is  
+
+
+##### Measure 3 - Success Rate #####
+"Success rate" is defined as the likelihood for a sample unique to be correctly matched within the underlying population. 
+
+
+##### Measure 4 - Records at risk #####
+This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk then majority of the cohort. The default lower boundary of individual risk for a record being considered as "risky" is 0.1, while the lower boundary for a record being considered as "riskier than majority" is $2*(median(r)+2*MAD(r))$ where $r$ represents the vector of indivial risks.  
+
+
+
+##### Measure 5 - Global risk #####
+The "global risk" measures the expected percentage of re-identifications, which is simply calculated as the expected number of re-identifications over sample size. 
+
+
+
+##### Measure 6 - Highest risk #####
+This is a worst-case senario measure, which gives the highest individual re-identification risk. 
+
+
+
+
+```{r aggregate_risk, include=F}
 source("./R/util.R")
 require_libraries(c("tidyr",
                     "dplyr",
@@ -29,11 +68,10 @@ for(i in 1:4){
     ungroup %>%
     mutate(perspective=paste0("Perspective_",i))
   
-  # dat<-readRDS(paste0("./output/ReID_risk_persp",i,".rda")) %>%
-  #   gather(risk_type,risk_score) %>%
-  #   mutate(perspective=as.character(i))
-  
   dat_stack %<>% bind_rows(dat)
 }
+
+
+
 ```
 
