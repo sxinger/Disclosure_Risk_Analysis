@@ -7,44 +7,13 @@ output: html_document
 
 ### Reidentifiaction Risk Analysis ###
 
-This document reports disclosure risks for 4 EHR data sets of Acute Kidney Injury (AKI) patients over 10 years at KU medical center with different observation points. 
+This document reports disclosure risks for 4 EHR data sets of Acute Kidney Injury (AKI) patients over 10 years at KU medical center with different observation points, which will be made open to public. 
 
 ***
 
 #### Measuring the Re-identification/Disclosure Risk ####
-6 measures for re-identification risk, inspired by Statistical Disclosure Control([sdcMicro]), are calculated and reported for all of the data sets. The 6 disclodure risk measures will be described and explained in the following sections.
 
-[sdcMicro]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
-
-***
-
-##### Measure 1 - Uniqueness #####
-"Uniqueness" measures the estimated percentage of unique records within the underlying population from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure.
-
-***
-
-##### Measure 2 - Adjusted Uniqueness #####
-Given the high dimension of data set (1,287 variables), Measure 1 tends to overestimate the overall "uniqueness" of a dataset. A less conservative measure of "uniqueness" is  
-
-
-##### Measure 3 - Success Rate #####
-"Success rate" is defined as the likelihood for a sample unique to be correctly matched within the underlying population. 
-
-
-##### Measure 4 - Records at risk #####
-This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk then majority of the cohort. The default lower boundary of individual risk for a record being considered as "risky" is 0.1, while the lower boundary for a record being considered as "riskier than majority" is $2*(median(r)+2*MAD(r))$ where $r$ represents the vector of indivial risks.  
-
-
-
-##### Measure 5 - Global risk #####
-The "global risk" measures the expected percentage of re-identifications, which is simply calculated as the expected number of re-identifications over sample size. 
-
-
-
-##### Measure 6 - Highest risk #####
-This is a worst-case senario measure, which gives the highest individual re-identification risk. 
-
-
+Table1 demonstrates results of 6 disclusure risk measures for all the 4 EHR data sets in request. We iterated the risk calculation over 10 random resamples and reported the median (90% confidence interval) in the following table. 
 
 
 ```{r aggregate_risk, include=F}
@@ -53,13 +22,14 @@ require_libraries(c("tidyr",
                     "dplyr",
                     "magrittr",
                     "ggplot2",
-                    "kabelExtra"
+                    "knitr",
+                    "kableExtra"
                     ))
 
 
 dat_stack<-c()
 for(i in 1:4){
-  dat<-readRDS(paste0("../output/ReID_risk_persp",i,".rda")) %>%
+  dat<-readRDS(paste0("./output/ReID_risk_persp",i,".rda")) %>%
     gather(risk_type,risk_score) %>%
     group_by(risk_type) %>%
     dplyr::summarize(risk_lower=quantile(risk_score,probs=0.05,na.rm=T),
@@ -71,7 +41,83 @@ for(i in 1:4){
   dat_stack %<>% bind_rows(dat)
 }
 
-
-
+dat_stack<-c()
+for(i in 1:4){
+  dat<-readRDS(paste0("./output/ReID_risk_persp",i,".rda"))  %>% 
+    mutate(risk5=risk5/45000) %>%
+    gather(risk_type,risk_score) %>%
+    group_by(risk_type) %>%
+    dplyr::summarize(risk_lower=round(quantile(risk_score,probs=0.05,na.rm=T),4),
+                     risk_median=round(median(risk_score,na.rm=T),4),
+                     risk_upper=round(quantile(risk_score,probs=0.95,na.rm=T),4)) %>%
+    ungroup %>%
+    mutate(perspective=paste0("Perspective_",i))
+  
+  dat_stack %<>% bind_rows(dat)
+}
 ```
+
+
+```{r out, echo=F}
+nice_tbl<-dat_stack %>%
+  mutate(risk_low_perc=paste0(risk_lower*100,"%"),
+         risk_med_perc=paste0(risk_median*100,"%"),
+         risk_high_perc=paste0(risk_upper*100,"%")) %>%
+  unite("risk_interv",c("risk_low_perc","risk_high_perc"),sep=",") %>%
+  mutate(risk_label=paste0(risk_med_perc," (",risk_interv,")")) %>%
+  dplyr::select(perspective, risk_type, risk_label) %>%
+  mutate(risk_type=recode(risk_type,
+                          risk1="Measure 1",
+                          risk2="Measure 2",
+                          risk3="Measure 3",
+                          risk4="Measure 4",
+                          risk5="Measure 5",
+                          risk6="Measure 6")) %>%
+  spread(risk_type,risk_label)
+
+kable(nice_tbl,
+      caption="Table1 - Disclosure Risk Estimations") %>%
+  kable_styling("striped", full_width = F)
+```
+
+
+#### Intepreting the Re-identification/Disclosure Risk ####
+The 6 measures for re-identification risk, inspired by Statistical Disclosure Control([sdcMicro]), are calculated and reported for all of the data sets. The 6 disclodure risk measures will be described and explained in the following sections.
+
+[sdcMicro]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
+
+***
+
+##### Measure 1 - Uniqueness #####
+"Uniqueness" measures the estimated percentage of unique records within the underlying population from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure. For example, 22.04% (Measure 1 for Perspective_1) can be interpreted as "among all the existing patterns available in the underlying population, around `r nice_tbl[1,2]` patterns are unique". `h2o.glm()` is used for deriving the poisson regression estimates and the risk calculation is a direct adoption of [risk1] from `sdcMicro`. 
+
+[risk1]: https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L139
+
+***
+
+##### Measure 2 - Adjusted Uniqueness #####
+Given the high dimension of data set (1,287 variables), Measure 1 tends to overestimate the overall "uniqueness" of a dataset. A less conservative measure of "uniqueness" is achieved by this measure, which relies on a clustering technique. The interpretation is similar as Measure 1. `dRisk()` function from the `sdcMicro` was directly adopted for calculating this measure.
+
+***
+
+##### Measure 3 - Success Rate #####
+"Success rate" is defined as the likelihood for a unique pattern in sample to be correctly matched within the underlying population. For example, `r nice_tbl[1,4]` (Measure 3 for Perspective_1) can be interpreted as "for all the unique patterns observed in the sample, the overall chance for an intruder to identify a same pattern within the underlying population is `r nice_tbl[1,4]`". `h2o.glm()` is used for deriving the poisson regression estimates and the risk calculation is a direct adoption of [risk2] from `sdcMicro`.
+
+[risk2]: https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L143
+
+***
+
+##### Measure 4 - Records at risk #####
+This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as "risky" is 0.1, while the lower boundary for a record being considered as "riskier than majority" is $2*(median(r)+2*MAD(r))$ where $r$ represents the vector of indivial risks. For example, `r nice_tbl[1,5]` (Measure 4 for Perspective_1) can be interpreted as "for all the sampling records, `r nice_tbl[1,5]` of them have more than 10% chance of being re-identified or being considered as extreme risky cases". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.   
+
+***
+
+##### Measure 5 - Global risk #####
+The "global risk" measures the expected percentage of re-identifications, which is simply calculated as the expected number of re-identifications over sample size. For example, `r nice_tbl[1,6]` (Measure 5 for Perspective_1) can be interpreted as "for all the sampling records, the average chance of being re-identified is around `r nice_tbl[1,6]`". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.    
+
+***
+
+##### Measure 6 - Highest risk #####
+This is a worst-case senario measure, which gives the highest individual re-identification risk. For example, 0.02% (Measure 6 for Perspective_1) can be interpreted as "The worst chance of being disclosed is `r nice_tbl[1,7]`". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.
+
 
