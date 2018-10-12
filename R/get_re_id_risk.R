@@ -114,14 +114,6 @@ for(i in seq_along(dat_suffix)){
 h2o.shutdown(prompt = FALSE)
 
 
-source("./R/util.R")
-require_libraries(c("tidyr",
-                    "dplyr",
-                    "magrittr",
-                    "ggplot2",
-                    "kableExtra"
-))
-
 
 ######### failed attemps #############
 # dat<-read.csv("./data/Perspective_1/Perspective_1.csv")
