@@ -1,12 +1,10 @@
 #####use sdcMicro to assess re-identification risk####
-setwd("~/re-id_risk_eval/")
-
 rm(list=ls())
 gc()
 
 #--global parameters
 #https://www.hcup-us.ahrq.gov/reports/statbriefs/sb225-Inpatient-US-Stays-Trends.jsp
-AKI_US<-35000000*0.1
+AKI_US<-35000000*0.1*10
 
 
 ######### prepare #######
@@ -22,7 +20,6 @@ require_libraries(c("tidyr",
 #--initialize h2o cluster
 h2o.init(nthreads=-1)
 
-######### perspective 1 ########
 #--load data
 dat<-read.csv("./data/Perspective_1/Perspective_1.csv")
 # mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
@@ -34,7 +31,11 @@ dat<-read.csv("./data/Perspective_1/Perspective_1.csv")
 #   filter(zero_infl < sparse_bd) %>%
 #   dplyr::select(-zero_infl)
 
-out<-eval_ReID_risk(dat,ns=10,rsp=0.6,csp=0.8, verb=T)
+## key variable selection - remove med
+col_med_rm<-colnames(dat)[colnames(dat) %in% paste0("X",c(1:366,1638:1918))]
+dat %<>% dplyr::select(col_med_rm) #610
+
+out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
 saveRDS(out,file="./output/ReID_risk_persp1.rda")
 
 

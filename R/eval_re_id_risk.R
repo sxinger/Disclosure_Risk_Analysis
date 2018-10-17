@@ -32,7 +32,7 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     #https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L198
     subset1 %<>%
       mutate(EC=counts/weights) %>%
-      mutate(offset=log(EC + 0.1))
+      mutate(offset=log(EC))
 
     subset1_h2o<-as.h2o(as.matrix(subset1))
     
@@ -69,7 +69,7 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
                   training_frame=subset1_h2o,
                   family="poisson",
                   solver="COORDINATE_DESCENT",   #same optimization method as glmnet
-                  alpha=0,                       #ridge regression
+                  alpha=0.5,                       #ridge regression
                   nfolds=5,
                   lambda_search=TRUE,
                   early_stopping = TRUE,
@@ -79,38 +79,38 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     )
     h2o_fit<-h2o.getFrame(pmod@model[["cross_validation_holdout_predictions_frame_id"]][["name"]])
     fit_cnt<-subset1 %>% 
-      dplyr::select(-weights,-EC,-offset) %>%
+      dplyr::select(-weights,-offset) %>%
       unite("pattern_str",vars_sel,sep="") %>%
-      dplyr::select(pattern_str,counts) %>%
+      dplyr::select(pattern_str,EC,counts) %>%
       dplyr::rename(sample_freq=counts) %>%
       mutate(est_freq=as.data.frame(h2o_fit)$predict)
                         
     if(verb){
-      cat("...procecutor attacker model done.\n")
+      cat("...log-linear model for global risk done.\n")
     }
     h2o.removeAll()
     
     #--marketer attacker model
-    mmod<-microaggregation(subset,
-                           method="mdav",
-                           aggr=20) #for better speed
-    # mmod<-mafast(subset,variables=vars,aggr=10) #faster performance--not always result in meaningful clusters
-    if(verb){
-      cat("...marketer attacker model done.\n")
-    }
+    # mmod<-microaggregation(subset,
+    #                        method="mdav",
+    #                        aggr=20) #for better speed
+    # # mmod<-mafast(subset,variables=vars,aggr=10) #faster performance--not always result in meaningful clusters
+    # if(verb){
+    #   cat("...nearest neightbor model for global risk done.\n")
+    # }
     
     #--calculate risks
     # https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L248
     r1<-risk1(fit_cnt$est_freq, subset1$EC)/n # 1. estimates the percentage of sample uniques that are population unique
     r2<-risk2(fit_cnt$est_freq, subset1$EC)/n # 2. estimates the percentage of correct matches of sample uniques
     
-    rk1<-sum(as.numeric(fit_cnt$sample_freq == 1) * r1) #disclosure risk model1 - uniquness
-    rk2<-dRisk(obj=subset,xm=mmod$mx)              #disclosure risk model2 - uniquness adjusted for continuous variable
-    rk3<-sum(as.numeric(fit_cnt$sample_freq == 1) * r2) #disclosure risk model3 - success rate
-    rk4<-sum((indiv_rk >= max(0.1,rk_bd)))         #disclosure risk model4 - records at risk
-    rk5<-round(sum(indiv_rk)/n,4)                  #disclosure risk model5 - global risk
-    rk6<-max(indiv_rk)                             #disclosure risk model6 - worst-case senario
-    cat("...risk score calculation done.\n")
+    rk1<-round(sum(indiv_rk)/n,4)                        #disclosure risk model1 - global risk
+    rk2<-sum(as.numeric(fit_cnt$sample_freq == 1) * r1)  #disclosure risk model2 - uniquness
+    rk3<-sum(as.numeric(fit_cnt$sample_freq == 1) * r2)  #disclosure risk model3 - success rate
+    rk4<-sum((indiv_rk >= max(0.1,rk_bd)))               #disclosure risk model4 - records at risk
+    rk5<-max(indiv_rk)                                   #disclosure risk model5 - worst-case senario
+    # rk6<-dRisk(obj=subset,xm=mmod$mx)                    #disclosure risk model6 - adjusted uniquness
+    cat("...risk scores calculation done.\n")
     
     #--attach results
     risk1_vec<-c(risk1_vec,rk1)
@@ -118,7 +118,7 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     risk3_vec<-c(risk3_vec,rk3)
     risk4_vec<-c(risk4_vec,rk4)
     risk5_vec<-c(risk5_vec,rk5)
-    risk6_vec<-c(risk6_vec,rk6)
+    # risk6_vec<-c(risk6_vec,rk6)
     
     lapse_i<-Sys.time()-start_i
     if(verb){
@@ -131,14 +131,13 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
                         risk2=risk2_vec,
                         risk3=risk3_vec,
                         risk4=risk4_vec,
-                        risk5=risk5_vec,
-                        risk6=risk6_vec)
+                        risk5=risk5_vec)
   
   if(keep_est){
-    risk_df<-list(risk_raw=fit_cnt,
+    risk_df<-list(est_freq=fit_cnt,
                   risk_summ=risk_summ)
   }else{
-    risk_df<-risk_summ
+    risk_df<-list(risk_summ=risk_summ)
   }
 
   return(risk_df)
