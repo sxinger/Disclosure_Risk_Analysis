@@ -1,5 +1,5 @@
 #####use sdcMicro to assess re-identification risk####
-eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
+eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
   #--global info
   n<-nrow(dat)
   vars<-colnames(dat)
@@ -19,13 +19,14 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
     #--sample data
     subset<-dat %>% sample_n(round(n*rsp)) 
     vars_sel<-sample(vars,round(csp*length(vars)))
+    vars_sel<-vars[vars %in% vars_sel] #put it in corrected order
     
     subset1<-subset %>%
       dplyr::select(vars_sel) %>%
-      mutate(weights=round(n*rsp)) %>%
+      mutate(weights=round(AKI_US/round(n*rsp))) %>%
       group_by_(.dots=vars_sel) %>%
-      mutate(counts=n(),
-             weights=sum(weights)) %>%
+      dplyr::summarize(counts=n(),
+                       weights=sum(weights)) %>%
       ungroup
     
     #https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L198
@@ -77,7 +78,13 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
                   keep_cross_validation_predictions =T
     )
     h2o_fit<-h2o.getFrame(pmod@model[["cross_validation_holdout_predictions_frame_id"]][["name"]])
-    fit_cnt<-as.data.frame(h2o_fit)$predict
+    fit_cnt<-subset1 %>% 
+      dplyr::select(-weights,-EC,-offset) %>%
+      unite("pattern_str",vars_sel,sep="") %>%
+      dplyr::select(pattern_str,counts) %>%
+      dplyr::rename(sample_freq=counts) %>%
+      mutate(est_freq=as.data.frame(h2o_fit)$predict)
+                        
     if(verb){
       cat("...procecutor attacker model done.\n")
     }
@@ -94,14 +101,14 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
     
     #--calculate risks
     # https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L248
-    r1<-risk1(fit_cnt, subset1$EC)/n # 1. estimates the number of sample uniques that are population unique
-    r2<-risk2(fit_cnt, subset1$EC)/n # 2. estimates the number of correct matches of sample uniques
+    r1<-risk1(fit_cnt$est_freq, subset1$EC)/n # 1. estimates the percentage of sample uniques that are population unique
+    r2<-risk2(fit_cnt$est_freq, subset1$EC)/n # 2. estimates the percentage of correct matches of sample uniques
     
-    rk1<-sum(as.numeric(subset1$counts == 1) * r1) #disclosure risk model1 - uniquness
+    rk1<-sum(as.numeric(fit_cnt$sample_freq == 1) * r1) #disclosure risk model1 - uniquness
     rk2<-dRisk(obj=subset,xm=mmod$mx)              #disclosure risk model2 - uniquness adjusted for continuous variable
-    rk3<-sum(as.numeric(subset1$counts == 1) * r2) #disclosure risk model3 - success rate
+    rk3<-sum(as.numeric(fit_cnt$sample_freq == 1) * r2) #disclosure risk model3 - success rate
     rk4<-sum((indiv_rk >= max(0.1,rk_bd)))         #disclosure risk model4 - records at risk
-    rk5<-sum(indiv_rk)                             #disclosure risk model5 - global risk
+    rk5<-round(sum(indiv_rk)/n,4)                  #disclosure risk model5 - global risk
     rk6<-max(indiv_rk)                             #disclosure risk model6 - worst-case senario
     cat("...risk score calculation done.\n")
     
@@ -120,12 +127,19 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8, verb=T){
   }
   
   #--calculate confidence interval
-  risk_df<-data.frame(risk1=risk1_vec,
-                      risk2=risk2_vec,
-                      risk3=risk3_vec,
-                      risk4=risk4_vec,
-                      risk5=risk5_vec,
-                      risk6=risk6_vec)
+  risk_summ<-data.frame(risk1=risk1_vec,
+                        risk2=risk2_vec,
+                        risk3=risk3_vec,
+                        risk4=risk4_vec,
+                        risk5=risk5_vec,
+                        risk6=risk6_vec)
+  
+  if(keep_est){
+    risk_df<-list(risk_raw=fit_cnt,
+                  risk_summ=risk_summ)
+  }else{
+    risk_df<-risk_summ
+  }
 
   return(risk_df)
 }

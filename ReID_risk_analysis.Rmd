@@ -44,7 +44,6 @@ for(i in 1:4){
 dat_stack<-c()
 for(i in 1:4){
   dat<-readRDS(paste0("./output/ReID_risk_persp",i,".rda"))  %>% 
-    mutate(risk5=risk5/45000) %>%
     gather(risk_type,risk_score) %>%
     group_by(risk_type) %>%
     dplyr::summarize(risk_lower=round(quantile(risk_score,probs=0.05,na.rm=T),4),
