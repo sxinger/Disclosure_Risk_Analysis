@@ -74,21 +74,55 @@ for(i in 1:nrow(data_type)){
   risk_ind %<>%
     bind_rows(out$risk_summ %>% mutate(data_type_incl=data_type$type[i]))
 }
-
 saveRDS(risk_ind,file="./output/ReID_risk_var_ind.rda")
 
 
-risk_order<-c(1,6,2,3,7,4,5)
+
+# search for minimal set of columns that still secure enough to release
+risk_order<-seq_len(nrow(data_type))[order(risk_ind$risk3)]
 risk_inc<-c()
 col_add<-c()
+chk_pt<-0
 for(i in 1:nrow(data_type)){
-  col_add<-c(col_add,colnames(dat)[colnames(dat) %in% idx_lst[[data_type$type[risk_order[i]]]]])
+  #--copy the last check point value
+  chk_pt_last<-chk_pt
   
-  dat_i<<-dat %>% dplyr::select(col_add)
+  #--add the whole data type, tentatively
+  col_add_try<-c(col_add,colnames(dat)[colnames(dat) %in% idx_lst[[data_type$type[risk_order[i]]]]])
+  dat_i<<-dat %>% dplyr::select(col_add_try)
   out<-eval_ReID_risk(dat_i,ns=1,rsp=1,csp=1)
+  chk_pt<-max(unlist(out$risk_summ))
   
+  #--inner loop for screening out rare features
+  col_ii<-colnames(dat)[colnames(dat) %in% idx_lst[[data_type$type[risk_order[i]]]]]
+  dat_ii<-dat_i %>% 
+    dplyr::select(col_ii) %>% 
+    group_by_(col_ii) %>%
+    summarise_all(function(x) mean(x!=0)) %>%
+    ungroup %>%
+    gather(vars,sparsity) %>%
+    arrange(desc(sparsity))
+  
+  chk_pt<-chk_pt_last
+  remain_col<-nrow(dat_ii)
+  col_add_try<-col_add
+  incl_until<-1
+  while(chk_pt<=0.03 | remain_col>0){
+    col_add_try<-c(col_add_try,dat_ii$vars[1:incl_until])
+    dat_i<<-dat %>% dplyr::select(col_add_try)
+    out<-eval_ReID_risk(dat_i,ns=1,rsp=1,csp=1)
+    chk_pt<-max(unlist(out$risk_summ))
+    remain_col<-nrow(dat_ii)-incl_until
+  }
+  
+  col_add<-col_add_try
   risk_inc %<>%
-    bind_rows(out$risk_summ %>% mutate(num_data_type=i))
+    bind_rows(out$risk_summ %>% 
+                mutate(num_data_type=i,
+                       num_vars=length(col_add)))
 }
 
-saveRDS(risk_inc,file="./output/ReID_risk_var_inc.rda")
+risk_sel<-list(col_sel=col_add,
+               risk_inc=risk_rinc)
+
+saveRDS(risk_sel,file="./output/ReID_risk_var_inc.rda")
