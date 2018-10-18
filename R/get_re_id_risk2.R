@@ -65,16 +65,30 @@ idx_lst<-list(demo=paste0("X",1:3-1),
               med=paste0("X",367:1637-1),
               ccs=paste0("X",1638:1917-1))
 
-overall_risk<-c()
+risk_ind<-c()
 for(i in 1:nrow(data_type)){
   col_sel<-colnames(dat)[colnames(dat) %in% idx_lst[[data_type$type[i]]]]
   dat_i<<-dat %>% dplyr::select(col_sel)
-  out<-eval_ReID_risk(dat,ns=10,rsp=0.9,csp=1)
+  out<-eval_ReID_risk(dat_i,ns=1,rsp=1,csp=1)
   
-  overall_risk %<>%
-    bind_rows(out$risk_summ %>% mutate(data_type_incl=i))
+  risk_ind %<>%
+    bind_rows(out$risk_summ %>% mutate(data_type_incl=data_type$type[i]))
 }
 
+saveRDS(risk_ind,file="./output/ReID_risk_var_ind.rda")
 
-saveRDS(out,file="./output/ReID_risk_var_sel.rda")
 
+risk_order<-c(1,6,2,3,7,4,5)
+risk_inc<-c()
+col_add<-c()
+for(i in 1:nrow(data_type)){
+  col_add<-c(col_add,colnames(dat)[colnames(dat) %in% idx_lst[[data_type$type[risk_order[i]]]]])
+  
+  dat_i<<-dat %>% dplyr::select(col_add)
+  out<-eval_ReID_risk(dat_i,ns=1,rsp=1,csp=1)
+  
+  risk_inc %<>%
+    bind_rows(out$risk_summ %>% mutate(num_data_type=i))
+}
+
+saveRDS(risk_inc,file="./output/ReID_risk_var_inc.rda")
