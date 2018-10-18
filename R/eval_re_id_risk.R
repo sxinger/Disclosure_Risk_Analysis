@@ -17,9 +17,18 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     start_i<-Sys.time()
     
     #--sample data
-    subset<-dat %>% sample_n(round(n*rsp)) 
-    vars_sel<-sample(vars,round(csp*length(vars)))
-    vars_sel<-vars[vars %in% vars_sel] #put it in corrected order
+    if(rsp<1){
+      subset<-dat %>% sample_n(round(n*rsp)) 
+    }else{
+      subset<-dat
+    }
+    
+    if(csp<1){
+      vars_sel<-sample(vars,round(csp*length(vars)))
+      vars_sel<-vars[vars %in% vars_sel] #put it in corrected order
+    }else{
+      vars_sel<-vars
+    }
     
     subset1<-subset %>%
       dplyr::select(vars_sel) %>%
@@ -68,16 +77,17 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
                   offset_column="offset",
                   training_frame=subset1_h2o,
                   family="poisson",
+                  # link="log",
                   solver="COORDINATE_DESCENT",   #same optimization method as glmnet
-                  alpha=0.5,                       #ridge regression
+                  alpha=0.5,                     #ridge regression
                   nfolds=5,
                   lambda_search=TRUE,
                   early_stopping = TRUE,
                   ignore_const_cols= TRUE,
-                  remove_collinear_columns=TRUE,
-                  keep_cross_validation_predictions =T
+                  remove_collinear_columns=TRUE
+                  # keep_cross_validation_predictions =T
     )
-    h2o_fit<-h2o.getFrame(pmod@model[["cross_validation_holdout_predictions_frame_id"]][["name"]])
+    h2o_fit<-predict(pmod,newdata=subset1_h2o)
     fit_cnt<-subset1 %>% 
       dplyr::select(-weights,-offset) %>%
       unite("pattern_str",vars_sel,sep="") %>%
@@ -104,11 +114,11 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     r1<-risk1(fit_cnt$est_freq, subset1$EC)/n # 1. estimates the percentage of sample uniques that are population unique
     r2<-risk2(fit_cnt$est_freq, subset1$EC)/n # 2. estimates the percentage of correct matches of sample uniques
     
-    rk1<-round(sum(indiv_rk)/n,4)                        #disclosure risk model1 - global risk
-    rk2<-sum(as.numeric(fit_cnt$sample_freq == 1) * r1)  #disclosure risk model2 - uniquness
-    rk3<-sum(as.numeric(fit_cnt$sample_freq == 1) * r2)  #disclosure risk model3 - success rate
-    rk4<-sum((indiv_rk >= max(0.1,rk_bd)))               #disclosure risk model4 - records at risk
-    rk5<-max(indiv_rk)                                   #disclosure risk model5 - worst-case senario
+    rk1<-round(sum(indiv_rk)/n,4)                                 #disclosure risk model1 - global risk
+    rk2<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r1),4)  #disclosure risk model2 - uniquness
+    rk3<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r2),4)  #disclosure risk model3 - success rate
+    rk4<-round(sum((indiv_rk >= max(0.1,rk_bd))),4)               #disclosure risk model4 - records at risk
+    rk5<-round(max(indiv_rk),4)                                   #disclosure risk model5 - worst-case senario
     # rk6<-dRisk(obj=subset,xm=mmod$mx)                    #disclosure risk model6 - adjusted uniquness
     cat("...risk scores calculation done.\n")
     
