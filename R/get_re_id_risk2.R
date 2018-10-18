@@ -67,7 +67,8 @@ idx_lst<-list(demo=paste0("X",1:3-1),
 
 risk_ind<-c()
 for(i in 1:nrow(data_type)){
-  col_sel<-colnames(dat)[colnames(dat) %in% idx_lst[[data_type$type[i]]]]
+  col_sel<-unique(c(idx_lst[["demo"]],
+                    colnames(dat)[colnames(dat) %in% idx_lst[[data_type$type[i]]]]))
   dat_i<<-dat %>% dplyr::select(col_sel)
   out<-eval_ReID_risk(dat_i,ns=1,rsp=1,csp=1)
   

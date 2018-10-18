@@ -12,12 +12,13 @@ This document reports disclosure risks for 4 EHR data sets of Acute Kidney Injur
 ***
 
 #### Determining Key Variables ####
-"Key variables", also called "implicit identifier" or "quasi-identifier", are defined as a set of variables that, when considered together, can be used to identify individual patients. Here we are treating all 1,287 variables to be key variables. 
+"Key variables", also called "implicit identifier" or "quasi-identifier", are defined as a set of variables that, when considered together, can be used to identify individual patients. However, treating all 1,287 variables as key variables would result in higher risk of containing too many "unique" patterns. So, we attempted to just release a minimal set of variables which: a) still covers all distinct data types; and b) re-identification scores of all 5 different measures are below 0.03. Note that in [sdcMicro Appendix A], only basic demographics are used as "key variables". We have also tested the scenario of (age is discretized into 6 groups) only including age, gender, race as keys, and got all the re-identification risk measures below 0.03%.
+
+[sdcMicro Appendix A]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
 
 
 #### Measuring the Re-identification/Disclosure Risk ####
-
-Table1 demonstrates results of 6 disclusure risk measures for all the 4 EHR data sets in request. We iterated the risk calculation over 10 random resamples and reported the median (90% confidence interval) in the following table. 
+Table1 demonstrates results of 5 disclusure risk measures for all the 4 EHR data sets in request. 
 
 
 ```{r aggregate_risk, include=F}
@@ -74,8 +75,7 @@ nice_tbl<-dat_stack %>%
                           risk2="Measure 2",
                           risk3="Measure 3",
                           risk4="Measure 4",
-                          risk5="Measure 5",
-                          risk6="Measure 6")) %>%
+                          risk5="Measure 5")) %>%
   spread(risk_type,risk_label)
 
 kable(nice_tbl,
@@ -85,14 +85,13 @@ kable(nice_tbl,
 
 
 #### Intepreting the Re-identification/Disclosure Risk ####
-The 6 measures for re-identification risk, inspired by Statistical Disclosure Control([sdcMicro]), are calculated and reported for all of the data sets. The 6 disclodure risk measures will be described and explained in the following sections.
+The 5 measures for re-identification risk, inspired by Statistical Disclosure Control([sdcMicro]), are calculated and reported for all of the data sets. The 5 disclodure risk measures will be described and explained in the following sections.
 
 [sdcMicro]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
 
 ***
 
 ##### Part I - Global Risk Models #####
-
 
 **Measure 1.1 - Global Risk (summarizing individual risks)**: It measures the expected percentage of re-identifications, which is based on summarizing the estimated risks for individual sampling units. For example, `r nice_tbl[1,1]` (Measure 1 for Perspective_1) can be interpreted as "for all the sampling records, the average chance of being re-identified is around `r nice_tbl[1,1]`". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.     
 

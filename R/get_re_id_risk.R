@@ -13,13 +13,15 @@ require_libraries(c("tidyr",
                     "magrittr",
                     "sdcMicro",
                     "h2o"))
+col_sel<-readRDS("./output/ReID_risk_var_inc.rda")$col_sel
 
 #--initialize h2o cluster
 h2o.init(nthreads=-1)
 
 ######### perspective 1 ########
 #--load data
-dat<-read.csv("./data/Perspective_1/Perspective_1.csv")
+dat<-read.csv("./data/Perspective_1/Perspective_1.csv") %>%
+  dplyr::select(col_sel)
 # mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
 
 #--remove sparse rows
@@ -29,13 +31,14 @@ dat<-read.csv("./data/Perspective_1/Perspective_1.csv")
 #   filter(zero_infl < sparse_bd) %>%
 #   dplyr::select(-zero_infl)
 
-out<-eval_ReID_risk(dat,ns=10,rsp=0.6,csp=0.8, verb=T)
+out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
 saveRDS(out,file="./output/ReID_risk_persp1.rda")
 
 
 ######### perspective 2 ########
 #--load data
-dat<-read.csv("./data/Perspective_2/Perspective_2.csv")
+dat<-read.csv("./data/Perspective_2/Perspective_2.csv") %>%
+  dplyr::select(col_sel)
 # mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
 
 #--remove sparse rows
@@ -45,7 +48,7 @@ dat<-read.csv("./data/Perspective_2/Perspective_2.csv")
 #   filter(zero_infl < sparse_bd) %>%
 #   dplyr::select(-zero_infl)
 
-out<-eval_ReID_risk(dat,ns=10,rsp=0.6,csp=0.8, verb=T)
+out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
 saveRDS(out,file="./output/ReID_risk_persp2.rda")
 
 
@@ -55,7 +58,8 @@ saveRDS(out,file="./output/ReID_risk_persp2.rda")
 dat_suffix<-1
 for(i in seq_along(dat_suffix)){
   dat<-read.csv(paste0("./data/Perspective_3/CSV/Perspective_3_d0_p",
-                       dat_suffix[i],".csv"))
+                       dat_suffix[i],".csv")) %>%
+    dplyr::select(col_sel)
   # mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
   
   #--remove sparse rows
@@ -65,7 +69,7 @@ for(i in seq_along(dat_suffix)){
   #   filter(zero_infl < sparse_bd) %>%
   #   dplyr::select(-zero_infl)
 
-  out<-eval_ReID_risk(dat,ns=10,rsp=0.6,csp=0.8, verb=T)
+  out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
   saveRDS(out,file=paste0("./output/ReID_risk_persp3_p",dat_suffix[i],".rda"))
 }
 
@@ -75,7 +79,8 @@ for(i in seq_along(dat_suffix)){
 dat_suffix<-1
 for(i in seq_along(dat_suffix)){
   dat<-read.csv(paste0("./data/Perspective_4/Perspective_4_d",
-                       dat_suffix[i],"_p1.csv"))
+                       dat_suffix[i],"_p1.csv")) %>%
+    dplyr::select(col_sel)
   # mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
   
   #--remove sparse rows
@@ -85,7 +90,7 @@ for(i in seq_along(dat_suffix)){
   #   filter(zero_infl < sparse_bd) %>%
   #   dplyr::select(-zero_infl)
   
-  out<-eval_ReID_risk(dat,ns=10,rsp=0.6,csp=0.8, verb=T)
+  out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
   saveRDS(out,file=paste0("./output/ReID_risk_persp4_d",dat_suffix[i],".rda"))
 }
 
