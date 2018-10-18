@@ -12,7 +12,7 @@ This document reports disclosure risks for 4 EHR data sets of Acute Kidney Injur
 ***
 
 #### Determining Key Variables ####
-"Key variables", also called "implicit identifier" or "quasi-identifier", are defined as a set of variables that, when considered together, can be used to identify individual patients. However, treating all 1,287 variables as key variables would result in higher risk of containing too many "unique" patterns. So, we attempted to just release a minimal set of variables which: a) still covers all distinct data types; and b) re-identification scores of all 5 different measures are below 0.03. Note that in [sdcMicro Appendix A], only basic demographics are used as "key variables". We have also tested the scenario of (age is discretized into 6 groups) only including age, gender, race as keys, and got all the re-identification risk measures below 0.03%.
+"Key variables", also called "implicit identifier" or "quasi-identifier", are defined as a set of variables that, when considered together, can be used to identify individual patients. Also "key variables" are, to some extent, more accessible to the public or to potential intruders. However, treating all 1,287 variables as key variables would result in higher risk of containing too many "unique" patterns. So, we attempted to just release a maximal set of variables which: a) still covers all distinct data types; and b) re-identification scores of all 5 different measures are below 0.03. Note that in [sdcMicro Appendix A], only basic demographics are used as "key variables". We have also tested the scenario of (age is discretized into 6 groups) only including age, gender, race as keys, and got all the re-identification risk measures below 0.03%.
 
 [sdcMicro Appendix A]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
 
@@ -93,15 +93,16 @@ The 5 measures for re-identification risk, inspired by Statistical Disclosure Co
 
 ##### Part I - Global Risk Models #####
 
-**Measure 1.1 - Global Risk (summarizing individual risks)**: It measures the expected percentage of re-identifications, which is based on summarizing the estimated risks for individual sampling units. For example, `r nice_tbl[1,1]` (Measure 1 for Perspective_1) can be interpreted as "for all the sampling records, the average chance of being re-identified is around `r nice_tbl[1,1]`". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.     
+**Measure 1.1 - Global Risk (negative binomial)**: It measures the expected percentage of re-identifications, which is based on summarizing the estimated risks for individual sampling units. For example, `r nice_tbl[1,1]` (Measure 1 for Perspective_1) can be interpreted as "for all the sampling records, the average chance of being re-identified is around `r nice_tbl[1,1]`". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.     
 
 
-**Measure 1.2 - Global Risk (poisson regression)**: It measures the estimated percentage of unique records within the underlying population from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure. For example, 22.04% (Measure 2 for Perspective_1) can be interpreted as "among all the existing patterns available in the underlying population, around `r nice_tbl[1,2]` patterns are unique". `h2o.glm()` is used for deriving the poisson regression estimates and the risk calculation is a direct adoption of [risk1] from `sdcMicro`. 
+**Measure 1.2 - Global Risk (poisson)**: It measures the estimated percentage of unique records within the underlying population from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure. For example, 22.04% (Measure 2 for Perspective_1) can be interpreted as "among all the existing patterns available in the underlying population, around `r nice_tbl[1,3]` patterns are unique". `h2o.glm()` is used for deriving the poisson regression estimates and the risk calculation is a direct adoption of [risk1] from `sdcMicro`. 
 
 [risk1]: https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L139
 
 
-**Measure 1.3 - Success Rate**: "Success rate" is defined as the likelihood for a unique pattern in sample to be correctly matched within the underlying population. For example, `r nice_tbl[1,3]` (Measure 3 for Perspective_1) can be interpreted as "for all the unique patterns observed in the sample, the overall chance for an intruder to identify a same pattern within the underlying population is `r nice_tbl[1,4]`". `h2o.glm()` is used for deriving the poisson regression estimates and the risk calculation is a direct adoption of [risk2] from `sdcMicro`.
+**Measure 1.3 - Success Rate**: "Success rate" is defined as the likelihood of correct guess if each sample unique is matched to a randomly chosen individual
+from the same population cell. For example, `r nice_tbl[1,4]` (Measure 3 for Perspective_1) can be interpreted as "for all the unique patterns observed in the sample, the overall chance for an intruder to identify a same pattern within the underlying population is `r nice_tbl[1,4]`". `h2o.glm()` is used for deriving the poisson regression estimates and the risk calculation is a direct adoption of [risk2] from `sdcMicro`.
 
 [risk2]: https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L143
 
@@ -110,10 +111,10 @@ The 5 measures for re-identification risk, inspired by Statistical Disclosure Co
 
 ##### Part II - Evaluating Extremely Risky cases #####
 
-**Measure 2.1 - Records at risk**: This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as "risky" is 0.1, while the lower boundary for a record being considered as "riskier than majority" is $2*(median(r)+2*MAD(r))$ where $r$ represents the vector of indivial risks. For example, `r nice_tbl[1,5]` (Measure 4 for Perspective_1) can be interpreted as "for all the sampling records, `r nice_tbl[1,4]` of them have more than 10% chance of being re-identified or being considered as extreme risky cases". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.      
+**Measure 2.1 - Records at risk**: This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as "risky" is 0.1, while the lower boundary for a record being considered as "riskier than majority" is $2*(median(r)+2*MAD(r))$ where $r$ represents the vector of indivial risks. For example, `r nice_tbl[1,5]` (Measure 4 for Perspective_1) can be interpreted as "for all the sampling records, `r nice_tbl[1,5]` of them have more than 10% chance of being re-identified or being considered as extreme risky cases". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.      
 
 
-**Measure 2.2 - Highest risk**: This is a worst-case senario measure, which gives the highest individual re-identification risk. For example, 0.02% (Measure 5 for Perspective_1) can be interpreted as "The worst chance of being disclosed is `r nice_tbl[1,5]`". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.     
+**Measure 2.2 - Highest risk**: This is a worst-case senario measure, which gives the highest individual re-identification risk. For example, 0.02% (Measure 5 for Perspective_1) can be interpreted as "The worst chance of being disclosed is `r nice_tbl[1,6]`". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.     
 
 ***
 

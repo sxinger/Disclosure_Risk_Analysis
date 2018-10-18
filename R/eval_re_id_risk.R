@@ -11,6 +11,7 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
   risk4_vec<-c()
   risk5_vec<-c()
   risk6_vec<-c()
+  risk7_vec<-c()
   
   #--loop over resamples
   for(i in seq_len(ns)){
@@ -33,6 +34,8 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     subset1<-subset %>%
       dplyr::select(vars_sel) %>%
       mutate(weights=round(AKI_US/round(n*rsp))) %>%
+      # https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/freqCalc.r#L97
+      # mutate(weights=1) %>%
       group_by_(.dots=vars_sel) %>%
       dplyr::summarize(counts=n(),
                        weights=sum(weights)) %>%
@@ -41,7 +44,7 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     #https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L198
     subset1 %<>%
       mutate(EC=counts/weights) %>%
-      mutate(offset=log(EC))
+      mutate(offset=log(EC+0.1))
 
     subset1_h2o<-as.h2o(as.matrix(subset1))
     
@@ -55,9 +58,11 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     rk_ms<-measure_risk(subset2,
                         keyVars=vars_sel,
                         w="weights")
-    print(rk_ms) # report 
-    indiv_rk<-rk_ms$Res[,1]
-    rk_bd<-2*(median(indiv_rk)+2*stats::mad(indiv_rk)) 
+    print(rk_ms) # report
+    Fk<-rk_ms$Res[,3]
+    indiv_rk2<-rk_ms$Res[,1]
+    
+    rk_bd<-2*(median(indiv_rk1)+2*stats::mad(indiv_rk1)) 
     rm(rk_ms);gc()
     cat("...inidividual risk measured.\n")
     
@@ -79,7 +84,7 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
                   family="poisson",
                   # link="log",
                   solver="COORDINATE_DESCENT",   #same optimization method as glmnet
-                  alpha=0.5,                     #ridge regression
+                  alpha=0.5,                     #penalized regression
                   nfolds=5,
                   lambda_search=TRUE,
                   early_stopping = TRUE,
@@ -93,7 +98,8 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
       unite("pattern_str",vars_sel,sep="") %>%
       dplyr::select(pattern_str,EC,counts) %>%
       dplyr::rename(sample_freq=counts) %>%
-      mutate(est_freq=as.data.frame(h2o_fit)$predict)
+      mutate(est_freq1=Fk,
+             est_freq2=as.data.frame(h2o_fit)$predict)
                         
     if(verb){
       cat("...log-linear model for global risk done.\n")
@@ -111,14 +117,17 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     
     #--calculate risks
     # https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L248
-    r1<-risk1(fit_cnt$est_freq, subset1$EC)/n # 1. estimates the percentage of sample uniques that are population unique
-    r2<-risk2(fit_cnt$est_freq, subset1$EC)/n # 2. estimates the percentage of correct matches of sample uniques
+    indiv_rk3<-rescale(fit_cnt$est_freq2,c(1,max(fit_cnt$est_freq1)))
+    r1<-risk1(indiv_rk3, subset1$EC)/n 
+    r2<-risk2(indiv_rk3, subset1$EC)/n 
     
-    rk1<-round(sum(indiv_rk)/n,4)                                 #disclosure risk model1 - global risk
-    rk2<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r1),4)  #disclosure risk model2 - uniquness
-    rk3<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r2),4)  #disclosure risk model3 - success rate
-    rk4<-round(sum((indiv_rk >= max(0.1,rk_bd))),4)               #disclosure risk model4 - records at risk
-    rk5<-round(max(indiv_rk),4)                                   #disclosure risk model5 - worst-case senario
+    rk1<-round(sum(as.numeric(fit_cnt$sample_freq == 1))/n,4)              #disclosure risk model1 - sample uniqueness
+    rk2<-round(mean(as.numeric(fit_cnt$sample_freq == 1)),4)  #disclosure risk model2 - population uniquness (NB)
+    rk3<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * indiv_rk2),4)    #disclosure risk model3 - matching rate (NB)
+    rk4<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r1),4)           #disclosure risk model4 - population uniquness (Poisson)
+    rk5<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r2),4)           #disclosure risk model5 - matching rate (Poisson)
+    rk6<-round(sum((indiv_rk1 >= max(0.1,rk_bd)))/n,4)                     #disclosure risk model6 - records at risk
+    rk7<-round(max(indiv_rk1),4)                                           #disclosure risk model7 - worst-case senario
     # rk6<-dRisk(obj=subset,xm=mmod$mx)                    #disclosure risk model6 - adjusted uniquness
     cat("...risk scores calculation done.\n")
     
@@ -128,7 +137,8 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     risk3_vec<-c(risk3_vec,rk3)
     risk4_vec<-c(risk4_vec,rk4)
     risk5_vec<-c(risk5_vec,rk5)
-    # risk6_vec<-c(risk6_vec,rk6)
+    risk6_vec<-c(risk6_vec,rk6)
+    risk7_vec<-c(risk7_vec,rk7)
     
     lapse_i<-Sys.time()-start_i
     if(verb){
@@ -141,9 +151,11 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
                         risk2=risk2_vec,
                         risk3=risk3_vec,
                         risk4=risk4_vec,
-                        risk5=risk5_vec)
+                        risk5=risk5_vec,
+                        risk6=risk6_vec,
+                        risk7=risk7_vec)
   
-  if(keep_est){
+  if(keep_est & ns==1){
     risk_df<-list(est_freq=fit_cnt,
                   risk_summ=risk_summ)
   }else{
