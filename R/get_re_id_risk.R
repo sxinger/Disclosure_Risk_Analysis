@@ -13,7 +13,9 @@ require_libraries(c("tidyr",
                     "magrittr",
                     "sdcMicro",
                     "h2o"))
-col_sel<-readRDS("./output/ReID_risk_var_inc.rda")$col_sel
+
+#--load selected variable list
+col_sel<-readRDS("./output/ReID_risk_var_inc1.rda")$col_sel
 
 #--initialize h2o cluster
 h2o.init(nthreads=-1)
