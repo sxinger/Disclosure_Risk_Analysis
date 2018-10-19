@@ -1,7 +1,7 @@
 ---
 title: "Reidentification Risk Analysis"
 author: "xsong"
-date: "10/10/2018"
+date: "10/19/2018"
 output: html_document
 ---
 
@@ -12,66 +12,59 @@ This document reports disclosure risks for 4 EHR data sets of Acute Kidney Injur
 ***
 
 #### Determining Key Variables ####
-"Key variables", also called "implicit identifier" or "quasi-identifier", are defined as a set of variables that, when considered together, can be used to identify individual patients. Also "key variables" are, to some extent, more accessible to the public or to potential intruders. However, treating all 1,287 variables as key variables would result in higher risk of containing too many "unique" patterns. So, we attempted to just release a maximal set of variables which: a) still covers all distinct data types; and b) "Global risk", or population uniqueness, is below 0.03%. 
+"Key variables", also called "implicit identifier" or "quasi-identifier", are defined as a set of variables that, when considered together, can be used to identify individual patients. Also "key variables" are, to some extent, more accessible to the public or to potential intruders. These "key variables" are usually determined by data privacy specialists. However, when this approach is not feasible, we can only treat all variables to be potential "key variables". In our case, treating all 1,287 variables as key variables would result in much higher risk of containing too many "unique" patterns, even if we assume data being a sample from an underlying population that is at least 10 times larger. So, we attempted to just release a maximal set of variables which: a) are more common among patients (assuming rare features are riskier); and b) their collective "Global risk", or population uniqueness, is below 0.03%. 
 
-Note that in [sdcMicro Appendix A], only basic demographics are used as "key variables". We have tested the scenario of (age is discretized into 6 groups) only including age, gender, race as keys, and got all the re-identification risk measures below 0.03%.
+Note that in [sdcMicro Appendix A], only basic demographics are used as "key variables". We have also tested the scenario of only including age (discretized into 6 groups), gender, race as keys, and got all the re-identification risk measures below 0.001%.
 
 [sdcMicro Appendix A]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
 
 
 #### Measuring the Re-identification/Disclosure Risk ####
-Table1 demonstrates results of 5 disclusure risk measures for all the 4 EHR data sets in request. 
+Table1 demonstrates results of 5 disclusure risk measures for all the 4 EHR data sets in request, which are properly scrubbed with selective columns of low disclosure risks.
 
 
-```{r aggregate_risk, include=F}
+```{r risk_est, include=F}
+
+
 source("./R/util.R")
+source("./R/eval_re_id_risk.R")
 require_libraries(c("tidyr",
                     "dplyr",
                     "magrittr",
-                    "ggplot2",
-                    "knitr",
-                    "kableExtra"
-                    ))
+                    "sdcMicro",
+                    "h2o",
+                    "scales"))
 
-
-dat_stack<-c()
-for(i in 1:4){
-  dat<-readRDS(paste0("./output/ReID_risk_persp",i,".rda")) %>%
-    gather(risk_type,risk_score) %>%
-    group_by(risk_type) %>%
-    dplyr::summarize(risk_lower=quantile(risk_score,probs=0.05,na.rm=T),
-                     risk_median=median(risk_score,na.rm=T),
-                     risk_upper=quantile(risk_score,probs=0.95,na.rm=T)) %>%
-    ungroup %>%
-    mutate(perspective=paste0("Perspective_",i))
-  
-  dat_stack %<>% bind_rows(dat)
-}
+#--initialize h2o cluster
+h2o.init(nthreads=-1)
 
 dat_stack<-c()
 for(i in 1:4){
-  dat<-readRDS(paste0("./output/ReID_risk_persp",i,".rda"))  %>% 
-    gather(risk_type,risk_score) %>%
-    group_by(risk_type) %>%
-    dplyr::summarize(risk_lower=round(quantile(risk_score,probs=0.05,na.rm=T),4),
-                     risk_median=round(median(risk_score,na.rm=T),4),
-                     risk_upper=round(quantile(risk_score,probs=0.95,na.rm=T),4)) %>%
-    ungroup %>%
-    mutate(perspective=paste0("Perspective_",i))
+  dat<-read.csv(paste0("./data/Perspective_",i,".csv"))
+  out<-sel_safe_col(dat,
+                  col_incl=c("X0","X1","X2"),
+                  incl_inc=50,
+                  uni_thresh=0.0003,
+                  wt=round(1/0.1*3))
   
-  dat_stack %<>% bind_rows(dat)
+  saveRDS(out,file=paste0("./output/ReID_risk_persp",i,".rda"))
+  
+  out_summ<-out$final_out$risk_summ %>%
+    gather(risk_type,risk_score) %>%
+    mutate(release_col = length(out$col_sel),
+           perspective=paste0("Perspective_",i))
+  
+  dat_stack %<>% bind_rows(out_summ)
 }
+
+h2o.shutdown(prompt=F)
 ```
 
 
 ```{r out, echo=F}
 nice_tbl<-dat_stack %>%
-  mutate(risk_low_perc=paste0(risk_lower*100,"%"),
-         risk_med_perc=paste0(risk_median*100,"%"),
-         risk_high_perc=paste0(risk_upper*100,"%")) %>%
-  unite("risk_interv",c("risk_low_perc","risk_high_perc"),sep=",") %>%
-  mutate(risk_label=paste0(risk_med_perc," (",risk_interv,")")) %>%
-  dplyr::select(perspective, risk_type, risk_label) %>%
+  mutate(risk_perc=paste0(risk_lower*100,"%")) %>%
+  dplyr::select(perspective,release_col,risk_type, risk_perc) %>%
   dplyr::filter(risk_type %in% paste0("risk",2:6)) %>%
   mutate(risk_type=recode(risk_type,
                           risk2="Measure 1.1",
@@ -88,7 +81,7 @@ kable(nice_tbl,
 
 
 #### Intepreting the Re-identification/Disclosure Risk ####
-The 5 measures for re-identification risk, inspired by Statistical Disclosure Control([sdcMicro]), are calculated and reported for all of the data sets. The 5 disclodure risk measures will be described and explained in the following sections.
+The 5 measures for re-identification risk, inspired by Statistical Disclosure Control([sdcMicro]), are calculated and reported for all of the data sets. The 5 disclodure risk measures will be described and explained in the following sections. In addition, the number of secure columns for release are also reported. 
 
 [sdcMicro]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
 
@@ -99,14 +92,11 @@ The 5 measures for re-identification risk, inspired by Statistical Disclosure Co
 
 
 
-**Measure 2 - Success Rate**: "Success rate" is defined as the likelihood of correct guess if each sample unique is matched to a randomly chosen individual from the same population cell. This measure is also estimated through two different models, negative binomial (Measure 2.1) [see Rinott and Shlomo, 2006] or poisson (Measure 2.2) [see Skinner and Holmes, 1998].   
-
-
-For example, `r nice_tbl[1,4]` (Measure 3 for Perspective_1) can be interpreted as "for all the unique patterns observed in the sample, the overall chance for an intruder to identify a same pattern within the underlying population is `r nice_tbl[1,4]`".
+**Measure 2 - Success Rate**: "Success rate" is defined as the likelihood of correct guess if each sample unique is matched to a randomly chosen individual from the same population cell. This measure is also estimated through two different models, negative binomial (Measure 2.1) [see Rinott and Shlomo, 2006] or poisson (Measure 2.2) [see Skinner and Holmes, 1998].    
 
 
 
-**Measure 3 - % Records at risk**: This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as "risky" is 0.1, while the lower boundary for a record being considered as "riskier than majority" is $2*(median(r)+2*MAD(r))$ where $r$ represents the vector of indivial risks. For example, `r nice_tbl[1,5]` (Measure 4 for Perspective_1) can be interpreted as "for all the sampling records, `r nice_tbl[1,5]` of them have more than 10% chance of being re-identified or being considered as extreme risky cases". `measure_risk()` function from the `sdcMicro` was directly adopted for calculating this measure.      
+**Measure 3 - % Records at risk**: This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as "risky" is 0.1, while the lower boundary for a record being considered as "riskier than majority" is $2*(median(r)+2*MAD(r))$ where $r$ represents the vector of indivial risks.      
 
 
 ***

@@ -1,5 +1,5 @@
 #####use sdcMicro to assess re-identification risk####
-eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
+eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,wt,verb=T,keep_est=T){
   #--global info
   n<-nrow(dat)
   vars<-colnames(dat)
@@ -33,9 +33,7 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     
     subset1<-subset %>%
       dplyr::select(vars_sel) %>%
-      mutate(weights=pop_N) %>%
-      # https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/freqCalc.r#L97
-      # mutate(weights=1) %>%
+      mutate(weights=wt) %>%
       group_by_(.dots=vars_sel) %>%
       dplyr::summarize(counts=n(),
                        weights=sum(weights)) %>%
@@ -118,17 +116,18 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
     #--calculate risks
     # https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L248
     indiv_rk3<-rescale(fit_cnt$est_freq2,c(1,max(fit_cnt$est_freq1)))
+    # indiv_rk3<-fit_cnt$est_freq2
     r1<-risk1(indiv_rk3, subset1$EC)/n 
     r2<-risk2(indiv_rk3, subset1$EC)/n 
     
-    rk1<-round(sum(as.numeric(fit_cnt$sample_freq == 1))/n,4)                                             #disclosure risk model1 - sample uniqueness
+    rk1<-round(sum(as.numeric(fit_cnt$sample_freq == 1))/n,6)                                             #disclosure risk model1 - sample uniqueness
     rk2<-ifelse(nrow(fit_cnt[(fit_cnt$sample_freq==1),])==0,0,
-                round(mean(as.numeric(fit_cnt[(fit_cnt$sample_freq==1),]$est_freq1==1)),4))               #disclosure risk model2 - population uniquness (NB)
-    rk3<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * indiv_rk2)/n,4)                                 #disclosure risk model3 - matching rate (NB)
-    rk4<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r1),4)                                          #disclosure risk model4 - population uniquness (Poisson)
-    rk5<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r2),4)                                          #disclosure risk model5 - matching rate (Poisson)
-    rk6<-round(sum((indiv_rk2 >= max(0.1,rk_bd)))/n,4)                                                    #disclosure risk model6 - records at risk
-    rk7<-round(mean(max(indiv_rk2),max(r2)),4)                                                            #disclosure risk model7 - worst-case senario
+                round(mean(as.numeric(fit_cnt[(fit_cnt$sample_freq==1),]$est_freq1==1)),6))               #disclosure risk model2 - population uniquness (NB)
+    rk3<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * indiv_rk2)/n,6)                                 #disclosure risk model3 - matching rate (NB)
+    rk4<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r1),6)                                          #disclosure risk model4 - population uniquness (Poisson)
+    rk5<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r2),6)                                          #disclosure risk model5 - matching rate (Poisson)
+    rk6<-round(sum((indiv_rk2 >= max(0.1,rk_bd)))/n,6)                                                    #disclosure risk model6 - records at risk
+    rk7<-round(mean(max(indiv_rk2),max(r2)),6)                                                            #disclosure risk model7 - worst-case senario
     # rk6<-dRisk(obj=subset,xm=mmod$mx)                                                                   #disclosure risk model6 - adjusted uniquness
     cat("...risk scores calculation done.\n")
     
@@ -165,3 +164,59 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,verb=T,keep_est=T){
 
   return(risk_df)
 }
+
+
+
+sel_safe_col<-function(dat,wt,col_incl=c("X0","X1","X2"),incl_inc=10,uni_thresh=0.0003){
+  col_add<-colnames(dat)[colnames(dat) %in% col_incl]
+  dat_i<<-dat %>% dplyr::select(col_add)
+  out<-eval_ReID_risk(dat_i,ns=1,rsp=1,csp=1,wt = wt)
+  chk_pt<-chk_pt<-mean(out$risk_summ$risk2,out$risk_summ$risk4)
+  
+  col_ii<-colnames(dat)[!(colnames(dat) %in% col_incl)]
+  #--rank features by sparsity
+  dat_ii<-dat %>% 
+    dplyr::select(col_ii) %>% 
+    summarise_all(function(x) mean(as.numeric(x!=0))) %>%
+    gather(vars,sparsity) %>%
+    arrange(desc(sparsity))
+  # write.csv(dat_ii,file="./output/sparsity_rank.csv")
+  
+  #--iteration
+  remain_col<-nrow(dat_ii)
+  col_add_try<-col_add
+  incl_until<-incl_inc
+  risk_inc<-c()
+  while(chk_pt<=uni_thresh && remain_col>0){
+    col_add_try<-c(col_add_try,dat_ii$vars[(incl_until-incl_inc):incl_until])
+    dat_i<<-dat %>% dplyr::select(col_add_try)
+    out<-eval_ReID_risk(dat_i,ns=1,rsp=1,csp=1,wt = wt)
+    chk_pt<-max(out$risk_summ$risk2,out$risk_summ$risk4)
+    
+    risk_inc %<>%
+      bind_rows(out$risk_summ %>% 
+                  mutate(num_vars=length(unique(col_add_try)),
+                         vars_lst=paste(c(col_incl,
+                                          dat_ii$vars[1:incl_until]),collapse=",")))
+    
+    remain_col<-nrow(dat_ii)-incl_until
+    incl_until<-incl_until+incl_inc
+  }
+  
+  if(length(col_add_try)>length(col_add)){
+    risk_inc<-risk_inc[-nrow(risk_inc),]
+    col_add<-unlist(strsplit(risk_inc$vars_lst[nrow(risk_inc)],","))
+    dat_i<<-dat %>% dplyr::select(col_add)
+    out<-eval_ReID_risk(dat_i,ns=1,rsp=1,csp=1,wt = wt)
+  }
+  
+  risk_sel<-list(col_sel=col_add,
+                 risk_inc=risk_inc,
+                 final_out=out)
+  
+  return(risk_sel)
+}
+
+
+
+
