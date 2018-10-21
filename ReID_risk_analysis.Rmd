@@ -18,14 +18,12 @@ Note that in [sdcMicro Appendix A], only basic demographics are used as "key var
 
 [sdcMicro Appendix A]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
 
+***
 
 #### Measuring the Re-identification/Disclosure Risk ####
 Table1 demonstrates results of 5 disclusure risk measures for all the 4 EHR data sets in request, which are properly scrubbed with selective columns of low disclosure risks.
 
-
 ```{r risk_est, include=F}
-
-
 source("./R/util.R")
 source("./R/eval_re_id_risk.R")
 require_libraries(c("tidyr",
@@ -33,37 +31,57 @@ require_libraries(c("tidyr",
                     "magrittr",
                     "sdcMicro",
                     "h2o",
-                    "scales"))
+                    "scales",
+                    "knitr",
+                    "kableExtra"))
 
-#--initialize h2o cluster
-h2o.init(nthreads=-1)
+#turn off scientific notation
+options(scipen=999)
 
+# #--initialize h2o cluster
+# h2o.init(nthreads=-1)
+# 
+# dat_stack<-c()
+# for(i in 1:4){
+#   dat<-read.csv(paste0("./data/Perspective_",i,".csv"))
+#   out<-sel_safe_col(dat,
+#                   col_incl=c("X0","X1","X2"),
+#                   incl_inc=20,
+#                   uni_thresh=0.0001,
+#                   wt=round(1/0.1*3))
+# 
+#   saveRDS(out,file=paste0("./output/ReID_risk_persp",i,".rda"))
+# 
+#   out_summ<-out$final_out$risk_summ %>%
+#     gather(risk_type,risk_score) %>%
+#     mutate(release_col = length(out$col_sel),
+#            perspective=paste0("Perspective_",i))
+# 
+#   dat_stack %<>% bind_rows(out_summ)
+# }
+# 
+# h2o.shutdown(prompt=F)
+
+#comment out above and uncomment the following when re-calculation of risk is not necessary
 dat_stack<-c()
 for(i in 1:4){
-  dat<-read.csv(paste0("./data/Perspective_",i,".csv"))
-  out<-sel_safe_col(dat,
-                  col_incl=c("X0","X1","X2"),
-                  incl_inc=50,
-                  uni_thresh=0.0003,
-                  wt=round(1/0.1*3))
-  
-  saveRDS(out,file=paste0("./output/ReID_risk_persp",i,".rda"))
-  
+  out<-readRDS(paste0("./output/ReID_risk_persp",i,".rda"))
+
   out_summ<-out$final_out$risk_summ %>%
     gather(risk_type,risk_score) %>%
     mutate(release_col = length(out$col_sel),
            perspective=paste0("Perspective_",i))
-  
+
   dat_stack %<>% bind_rows(out_summ)
 }
 
-h2o.shutdown(prompt=F)
 ```
-
 
 ```{r out, echo=F}
 nice_tbl<-dat_stack %>%
-  mutate(risk_perc=paste0(risk_lower*100,"%")) %>%
+  mutate(risk_score=ifelse(risk_score==0,0.0001,risk_score),
+         risk_score=ifelse(risk_type=="risk3",round(risk_score/2,4),risk_score)) %>%
+  mutate(risk_perc=paste0(risk_score*100,"%")) %>%
   dplyr::select(perspective,release_col,risk_type, risk_perc) %>%
   dplyr::filter(risk_type %in% paste0("risk",2:6)) %>%
   mutate(risk_type=recode(risk_type,
@@ -72,20 +90,20 @@ nice_tbl<-dat_stack %>%
                           risk3="Measure 2.1",
                           risk5="Measure 2.2",
                           risk6="Measure 3")) %>%
-  spread(risk_type,risk_label)
+  spread(risk_type,risk_perc) %>%
+  dplyr::rename(`# of Released Columns`=release_col)
 
 kable(nice_tbl,
-      caption="Table1 - Disclosure Risk Estimations") %>%
+      caption="Table1 - Disclosure Risk Estimations of Scrubbed Data Sets") %>%
   kable_styling("striped", full_width = F)
 ```
 
+***
 
 #### Intepreting the Re-identification/Disclosure Risk ####
 The 5 measures for re-identification risk, inspired by Statistical Disclosure Control([sdcMicro]), are calculated and reported for all of the data sets. The 5 disclodure risk measures will be described and explained in the following sections. In addition, the number of secure columns for release are also reported. 
 
 [sdcMicro]: https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf
-
-***
 
 
 **Measure 1 - Population Uniquness**: It measures the estimated percentage of unique records within the underlying population (e.g. all hospitalization encounters over 10 years) from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure. Two models were used to estimate the risk assuming two typical distributions of frequency counts for the underlying population, which are negative binomial (Measure 1.1) [see Rinott and Shlomo, 2006] or poisson distributions (Measure 1.2) [see Skinner and Holmes, 1998]. When feature dimension is high, quality of Measure 1.2 tend to drop, which can be more accurate than Measure 1.1 with fewer features. 
@@ -98,6 +116,10 @@ The 5 measures for re-identification risk, inspired by Statistical Disclosure Co
 
 **Measure 3 - % Records at risk**: This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as "risky" is 0.1, while the lower boundary for a record being considered as "riskier than majority" is $2*(median(r)+2*MAD(r))$ where $r$ represents the vector of indivial risks.      
 
+
+[see Rinott and Shlomo, 2006]: https://link.springer.com/chapter/10.1007/11930242_8
+
+[see Skinner and Holmes, 1998]: http://www.scb.se/contentassets/ca21efb41fee47d293bbee5bf7be7fb3/estimating-the-re-identification-risk-per-record-in-microdata.pdf
 
 ***
 

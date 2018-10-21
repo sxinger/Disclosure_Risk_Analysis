@@ -120,14 +120,14 @@ eval_ReID_risk<-function(dat,ns=10,rsp=0.6,csp=0.8,wt,verb=T,keep_est=T){
     r1<-risk1(indiv_rk3, subset1$EC)/n 
     r2<-risk2(indiv_rk3, subset1$EC)/n 
     
-    rk1<-round(sum(as.numeric(fit_cnt$sample_freq == 1))/n,6)                                             #disclosure risk model1 - sample uniqueness
+    rk1<-round(sum(as.numeric(fit_cnt$sample_freq == 1))/n,4)                                             #disclosure risk model1 - sample uniqueness
     rk2<-ifelse(nrow(fit_cnt[(fit_cnt$sample_freq==1),])==0,0,
-                round(mean(as.numeric(fit_cnt[(fit_cnt$sample_freq==1),]$est_freq1==1)),6))               #disclosure risk model2 - population uniquness (NB)
-    rk3<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * indiv_rk2)/n,6)                                 #disclosure risk model3 - matching rate (NB)
-    rk4<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r1),6)                                          #disclosure risk model4 - population uniquness (Poisson)
-    rk5<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r2),6)                                          #disclosure risk model5 - matching rate (Poisson)
-    rk6<-round(sum((indiv_rk2 >= max(0.1,rk_bd)))/n,6)                                                    #disclosure risk model6 - records at risk
-    rk7<-round(mean(max(indiv_rk2),max(r2)),6)                                                            #disclosure risk model7 - worst-case senario
+                round(mean(as.numeric(fit_cnt[(fit_cnt$sample_freq==1),]$est_freq1==1)),4))               #disclosure risk model2 - population uniquness (NB)
+    rk3<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * indiv_rk2)/n,4)                                 #disclosure risk model3 - matching rate (NB)
+    rk4<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r1),4)                                          #disclosure risk model4 - population uniquness (Poisson)
+    rk5<-round(sum(as.numeric(fit_cnt$sample_freq == 1) * r2),4)                                          #disclosure risk model5 - matching rate (Poisson)
+    rk6<-round(sum((indiv_rk2 >= max(0.1,rk_bd)))/n,4)                                                    #disclosure risk model6 - records at risk
+    rk7<-round(mean(max(indiv_rk2),max(r2)),4)                                                            #disclosure risk model7 - worst-case senario
     # rk6<-dRisk(obj=subset,xm=mmod$mx)                                                                   #disclosure risk model6 - adjusted uniquness
     cat("...risk scores calculation done.\n")
     

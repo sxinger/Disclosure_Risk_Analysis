@@ -11,7 +11,7 @@
 
 <meta name="author" content="xsong" />
 
-<meta name="date" content="2018-10-10" />
+<meta name="date" content="2018-10-19" />
 
 <title>Reidentification Risk Analysis</title>
 
@@ -125,7 +125,7 @@ $(document).ready(function () {
 
 <h1 class="title toc-ignore">Reidentification Risk Analysis</h1>
 <h4 class="author"><em>xsong</em></h4>
-<h4 class="date"><em>10/10/2018</em></h4>
+<h4 class="date"><em>10/19/2018</em></h4>
 
 </div>
 
@@ -134,35 +134,41 @@ $(document).ready(function () {
 <h3>Reidentifiaction Risk Analysis</h3>
 <p>This document reports disclosure risks for 4 EHR data sets of Acute Kidney Injury (AKI) patients over 10 years at KU medical center with different observation points, which will be made open to public.</p>
 <hr />
+<div id="determining-key-variables" class="section level4">
+<h4>Determining Key Variables</h4>
+<p>“Key variables”, also called “implicit identifier” or “quasi-identifier”, are defined as a set of variables that, when considered together, can be used to identify individual patients. Also “key variables” are, to some extent, more accessible to the public or to potential intruders. These “key variables” are usually determined by data privacy specialists. However, when this approach is not feasible, we can only treat all variables to be potential “key variables”. In our case, treating all 1,287 variables as key variables would result in much higher risk of containing too many “unique” patterns, even if we assume data being a sample from an underlying population that is at least 10 times larger. So, we attempted to just release a maximal set of variables which: a) are more common among patients (assuming rare features are riskier); and b) their collective “Global risk”, or population uniqueness, is below 0.03%.</p>
+<p>Note that in <a href="https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf">sdcMicro Appendix A</a>, only basic demographics are used as “key variables”. We have also tested the scenario of only including age (discretized into 6 groups), gender, race as keys, and got all the re-identification risk measures below 0.001%.</p>
+<hr />
+</div>
 <div id="measuring-the-re-identificationdisclosure-risk" class="section level4">
 <h4>Measuring the Re-identification/Disclosure Risk</h4>
-<p>Table1 demonstrates results of 6 disclusure risk measures for all the 4 EHR data sets in request. We iterated the risk calculation over 10 random resamples and reported the median (90% confidence interval) in the following table.</p>
+<p>Table1 demonstrates results of 5 disclusure risk measures for all the 4 EHR data sets in request, which are properly scrubbed with selective columns of low disclosure risks.</p>
 <table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;">
 <caption>
-Table1 - Disclosure Risk Estimations
+Table1 - Disclosure Risk Estimations of Scrubbed Data Sets
 </caption>
 <thead>
 <tr>
 <th style="text-align:left;">
 perspective
 </th>
-<th style="text-align:left;">
-Measure 1
+<th style="text-align:right;">
+# of Released Columns
 </th>
 <th style="text-align:left;">
-Measure 2
+Measure 1.1
+</th>
+<th style="text-align:left;">
+Measure 1.2
+</th>
+<th style="text-align:left;">
+Measure 2.1
+</th>
+<th style="text-align:left;">
+Measure 2.2
 </th>
 <th style="text-align:left;">
 Measure 3
-</th>
-<th style="text-align:left;">
-Measure 4
-</th>
-<th style="text-align:left;">
-Measure 5
-</th>
-<th style="text-align:left;">
-Measure 6
 </th>
 </tr>
 </thead>
@@ -171,130 +177,105 @@ Measure 6
 <td style="text-align:left;">
 Perspective_1
 </td>
-<td style="text-align:left;">
-22.04% (21.89%,22.06%)
+<td style="text-align:right;">
+223
 </td>
 <td style="text-align:left;">
-0% (0%,0%)
+0.01%
 </td>
 <td style="text-align:left;">
-37.89% (37.71%,37.91%)
+0.01%
 </td>
 <td style="text-align:left;">
-0% (0%,0%)
+5.86%
 </td>
 <td style="text-align:left;">
-0.02% (0.02%,0.02%)
+3.05%
 </td>
 <td style="text-align:left;">
-0.02% (0.02%,0.02%)
+0.01%
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
 Perspective_2
 </td>
-<td style="text-align:left;">
-22% (21.84%,22.02%)
+<td style="text-align:right;">
+303
 </td>
 <td style="text-align:left;">
-0% (0%,0%)
+0.01%
 </td>
 <td style="text-align:left;">
-37.84% (37.65%,37.86%)
+0.01%
 </td>
 <td style="text-align:left;">
-0% (0%,0%)
+5.86%
 </td>
 <td style="text-align:left;">
-0.02% (0.02%,0.02%)
+5.81%
 </td>
 <td style="text-align:left;">
-0.02% (0.02%,0.02%)
+0.01%
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
 Perspective_3
 </td>
-<td style="text-align:left;">
-21.98% (21.82%,22.03%)
+<td style="text-align:right;">
+303
 </td>
 <td style="text-align:left;">
-0% (0%,0%)
+0.01%
 </td>
 <td style="text-align:left;">
-37.82% (37.64%,37.88%)
+0.0031%
 </td>
 <td style="text-align:left;">
-0% (0%,0%)
+5.85%
 </td>
 <td style="text-align:left;">
-0.02% (0.02%,0.02%)
+5.1438%
 </td>
 <td style="text-align:left;">
-0.02% (0.02%,0.02%)
+0.01%
 </td>
 </tr>
 <tr>
 <td style="text-align:left;">
 Perspective_4
 </td>
-<td style="text-align:left;">
-21.95% (21.48%,22.05%)
+<td style="text-align:right;">
+253
 </td>
 <td style="text-align:left;">
-0% (0%,0%)
+0.01%
 </td>
 <td style="text-align:left;">
-37.78% (37.26%,37.9%)
+0.0061%
 </td>
 <td style="text-align:left;">
-0% (0%,0%)
+5.86%
 </td>
 <td style="text-align:left;">
-0.02% (0.02%,0.02%)
+3.6918%
 </td>
 <td style="text-align:left;">
-0.02% (0.02%,0.02%)
+0.01%
 </td>
 </tr>
 </tbody>
 </table>
+<hr />
 </div>
 <div id="intepreting-the-re-identificationdisclosure-risk" class="section level4">
 <h4>Intepreting the Re-identification/Disclosure Risk</h4>
-<p>The 6 measures for re-identification risk, inspired by Statistical Disclosure Control(<a href="https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf">sdcMicro</a>), are calculated and reported for all of the data sets. The 6 disclodure risk measures will be described and explained in the following sections.</p>
+<p>The 5 measures for re-identification risk, inspired by Statistical Disclosure Control(<a href="https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf">sdcMicro</a>), are calculated and reported for all of the data sets. The 5 disclodure risk measures will be described and explained in the following sections. In addition, the number of secure columns for release are also reported.</p>
+<p><strong>Measure 1 - Population Uniquness</strong>: It measures the estimated percentage of unique records within the underlying population (e.g. all hospitalization encounters over 10 years) from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure. Two models were used to estimate the risk assuming two typical distributions of frequency counts for the underlying population, which are negative binomial (Measure 1.1) <a href="https://link.springer.com/chapter/10.1007/11930242_8">see Rinott and Shlomo, 2006</a> or poisson distributions (Measure 1.2) <a href="http://www.scb.se/contentassets/ca21efb41fee47d293bbee5bf7be7fb3/estimating-the-re-identification-risk-per-record-in-microdata.pdf">see Skinner and Holmes, 1998</a>. When feature dimension is high, quality of Measure 1.2 tend to drop, which can be more accurate than Measure 1.1 with fewer features.</p>
+<p><strong>Measure 2 - Success Rate</strong>: “Success rate” is defined as the likelihood of correct guess if each sample unique is matched to a randomly chosen individual from the same population cell. This measure is also estimated through two different models, negative binomial (Measure 2.1) <a href="https://link.springer.com/chapter/10.1007/11930242_8">see Rinott and Shlomo, 2006</a> or poisson (Measure 2.2) <a href="http://www.scb.se/contentassets/ca21efb41fee47d293bbee5bf7be7fb3/estimating-the-re-identification-risk-per-record-in-microdata.pdf">see Skinner and Holmes, 1998</a>.</p>
+<p><strong>Measure 3 - % Records at risk</strong>: This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as “risky” is 0.1, while the lower boundary for a record being considered as “riskier than majority” is <span class="math inline">\(2*(median(r)+2*MAD(r))\)</span> where <span class="math inline">\(r\)</span> represents the vector of indivial risks.</p>
 <hr />
-<div id="measure-1---uniqueness" class="section level5">
-<h5>Measure 1 - Uniqueness</h5>
-<p>“Uniqueness” measures the estimated percentage of unique records within the underlying population from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure. For example, 22.04% (Measure 1 for Perspective_1) can be interpreted as “among all the existing patterns available in the underlying population, around 22.04% (21.89%,22.06%) patterns are unique”. <code>h2o.glm()</code> is used for deriving the poisson regression estimates and the risk calculation is a direct adoption of <a href="https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L139">risk1</a> from <code>sdcMicro</code>.</p>
-<hr />
-</div>
-<div id="measure-2---adjusted-uniqueness" class="section level5">
-<h5>Measure 2 - Adjusted Uniqueness</h5>
-<p>Given the high dimension of data set (1,287 variables), Measure 1 tends to overestimate the overall “uniqueness” of a dataset. A less conservative measure of “uniqueness” is achieved by this measure, which relies on a clustering technique. The interpretation is similar as Measure 1. <code>dRisk()</code> function from the <code>sdcMicro</code> was directly adopted for calculating this measure.</p>
-<hr />
-</div>
-<div id="measure-3---success-rate" class="section level5">
-<h5>Measure 3 - Success Rate</h5>
-<p>“Success rate” is defined as the likelihood for a unique pattern in sample to be correctly matched within the underlying population. For example, 37.89% (37.71%,37.91%) (Measure 3 for Perspective_1) can be interpreted as “for all the unique patterns observed in the sample, the overall chance for an intruder to identify a same pattern within the underlying population is 37.89% (37.71%,37.91%)”. <code>h2o.glm()</code> is used for deriving the poisson regression estimates and the risk calculation is a direct adoption of <a href="https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L143">risk2</a> from <code>sdcMicro</code>.</p>
-<hr />
-</div>
-<div id="measure-4---records-at-risk" class="section level5">
-<h5>Measure 4 - Records at risk</h5>
-<p>This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as “risky” is 0.1, while the lower boundary for a record being considered as “riskier than majority” is <span class="math inline">\(2*(median(r)+2*MAD(r))\)</span> where <span class="math inline">\(r\)</span> represents the vector of indivial risks. For example, 0% (0%,0%) (Measure 4 for Perspective_1) can be interpreted as “for all the sampling records, 0% (0%,0%) of them have more than 10% chance of being re-identified or being considered as extreme risky cases”. <code>measure_risk()</code> function from the <code>sdcMicro</code> was directly adopted for calculating this measure.</p>
-<hr />
-</div>
-<div id="measure-5---global-risk" class="section level5">
-<h5>Measure 5 - Global risk</h5>
-<p>The “global risk” measures the expected percentage of re-identifications, which is simply calculated as the expected number of re-identifications over sample size. For example, 0.02% (0.02%,0.02%) (Measure 5 for Perspective_1) can be interpreted as “for all the sampling records, the average chance of being re-identified is around 0.02% (0.02%,0.02%)”. <code>measure_risk()</code> function from the <code>sdcMicro</code> was directly adopted for calculating this measure.</p>
-<hr />
-</div>
-<div id="measure-6---highest-risk" class="section level5">
-<h5>Measure 6 - Highest risk</h5>
-<p>This is a worst-case senario measure, which gives the highest individual re-identification risk. For example, 0.02% (Measure 6 for Perspective_1) can be interpreted as “The worst chance of being disclosed is 0.02% (0.02%,0.02%)”. <code>measure_risk()</code> function from the <code>sdcMicro</code> was directly adopted for calculating this measure.</p>
-</div>
 </div>
 </div>
 
