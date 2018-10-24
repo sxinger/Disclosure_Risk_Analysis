@@ -178,7 +178,7 @@ Measure 3
 Perspective_1
 </td>
 <td style="text-align:right;">
-223
+233
 </td>
 <td style="text-align:left;">
 0.01%
@@ -190,7 +190,7 @@ Perspective_1
 5.86%
 </td>
 <td style="text-align:left;">
-3.05%
+3.51%
 </td>
 <td style="text-align:left;">
 0.01%
@@ -230,13 +230,13 @@ Perspective_3
 0.01%
 </td>
 <td style="text-align:left;">
-0.0031%
+0.01%
 </td>
 <td style="text-align:left;">
-5.85%
+5.86%
 </td>
 <td style="text-align:left;">
-5.1438%
+5.99%
 </td>
 <td style="text-align:left;">
 0.01%
@@ -247,19 +247,19 @@ Perspective_3
 Perspective_4
 </td>
 <td style="text-align:right;">
-253
+283
 </td>
 <td style="text-align:left;">
 0.01%
 </td>
 <td style="text-align:left;">
-0.0061%
+0.01%
 </td>
 <td style="text-align:left;">
 5.86%
 </td>
 <td style="text-align:left;">
-3.6918%
+4.02%
 </td>
 <td style="text-align:left;">
 0.01%
@@ -271,10 +271,17 @@ Perspective_4
 </div>
 <div id="intepreting-the-re-identificationdisclosure-risk" class="section level4">
 <h4>Intepreting the Re-identification/Disclosure Risk</h4>
-<p>The 5 measures for re-identification risk, inspired by Statistical Disclosure Control(<a href="https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf">sdcMicro</a>), are calculated and reported for all of the data sets. The 5 disclodure risk measures will be described and explained in the following sections. In addition, the number of secure columns for release are also reported.</p>
+<p>Three measures for re-identification/disclosure risk, inspired by Statistical Disclosure Control(<a href="https://cran.r-project.org/web/packages/sdcMicro/vignettes/sdc_guidelines.pdf">sdcMicro</a>), are calculated and reported for all of the data sets. In addition, the number of secure columns for release are also reported.</p>
 <p><strong>Measure 1 - Population Uniquness</strong>: It measures the estimated percentage of unique records within the underlying population (e.g. all hospitalization encounters over 10 years) from which the sample is drawn. The idea is that individual record having rare pattern (i.e. combination of variables) can be more easily identified and thus have a higher risk of re-identification/disclosure. Two models were used to estimate the risk assuming two typical distributions of frequency counts for the underlying population, which are negative binomial (Measure 1.1) <a href="https://link.springer.com/chapter/10.1007/11930242_8">see Rinott and Shlomo, 2006</a> or poisson distributions (Measure 1.2) <a href="http://www.scb.se/contentassets/ca21efb41fee47d293bbee5bf7be7fb3/estimating-the-re-identification-risk-per-record-in-microdata.pdf">see Skinner and Holmes, 1998</a>. When feature dimension is high, quality of Measure 1.2 tend to drop, which can be more accurate than Measure 1.1 with fewer features.</p>
+<p>For example, if an attacker wants to use data set “perspective_1” to re-identify some patients, the chance for them to pick out a record that likely to uniquely belong to a patient is less than . In other words, more than 99.99% records are ambiguous, or “anonymous”, enough to not put any particular patient at risk of being disclosed.</p>
+<hr />
 <p><strong>Measure 2 - Success Rate</strong>: “Success rate” is defined as the likelihood of correct guess if each sample unique is matched to a randomly chosen individual from the same population cell. This measure is also estimated through two different models, negative binomial (Measure 2.1) <a href="https://link.springer.com/chapter/10.1007/11930242_8">see Rinott and Shlomo, 2006</a> or poisson (Measure 2.2) <a href="http://www.scb.se/contentassets/ca21efb41fee47d293bbee5bf7be7fb3/estimating-the-re-identification-risk-per-record-in-microdata.pdf">see Skinner and Holmes, 1998</a>.</p>
+<p>For example, the average chance for a unqiue or rare record within the data set “perspective_1” being successfully re-identified is less than . In other words, even if an attacker is able to link additional information to records in this data set, the chance for them to be sure that their linkage is correct is less than  of the time.</p>
+<hr />
 <p><strong>Measure 3 - % Records at risk</strong>: This measure calculates the percentage of observations that are condiered risky and also have relatively higher risk than majority of the cohort. The default lower boundary of individual risk for a record being considered as “risky” is 0.1, while the lower boundary for a record being considered as “riskier than majority” is <span class="math inline">\(2*(median(r)+2*MAD(r))\)</span> where <span class="math inline">\(r\)</span> represents the vector of indivial risks.</p>
+<p>Measure 1 and Measure 2 estimates the global disclosure risks, Measure 3 is used to identify if there exists patients with extremely high risk of being disclosed (e.g. patients with very rare clinical pathways or very complete information), which turns out to be all less then 0.001% in all of the scrubbed data sets.</p>
+<hr />
+<p>In conclusion, these 4 data sets do not contain any sensitive patient-level information. The only three demographic features have been properly discretized to increase “anonymity”. All the clinical variables have been abstracted to high levels than the raw entries (e.g. diagnosis are grouped at [CCS] level, medications are grouped at generic name level). Moreover, we will only release less than 25% (~200-300) columns of each data sets, so as to futher control the global risk of re-identification/disclosure.</p>
 <hr />
 </div>
 </div>

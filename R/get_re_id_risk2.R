@@ -7,7 +7,7 @@ gc()
 # pop_N<-35000000*0.1*10/70000
 #hospitalization counts/year * AKI incidence rate * 10 years/sample size
 
-pop_N<-1/0.1*10
+pop_N<-1/0.1*3
 
 
 
@@ -26,7 +26,7 @@ require_libraries(c("tidyr",
 h2o.init(nthreads=-1)
 
 #--load data
-dat<-read.csv("./data/Perspective_1/Perspective_1.csv")
+dat<-read.csv("./data/Perspective_1.csv")
 # dat %<>%
 #   mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
 
@@ -196,28 +196,30 @@ saveRDS(risk_sel,file="./output/ReID_risk_var_inc2.rda")
 
 ## remove unique patterns (row)
 risk_dec<-c()
-dat<-read.csv("./data/Perspective_1/Perspective_1.csv") %>%
-  mutate(row_num= 1:n())
+dat<-read.csv("./data/Perspective_1.csv") %>%
+  mutate(row_num= 1:n()) %>%
+  dplyr::rename(label=X1917)
 vars<-colnames(dat)
+vars<-vars[grepl("^X.*",vars)]
 
-dat_pattern<-dat %>% dplyr::select(c("row_num",vars)) %>%
+dat_pattern<-dat %>% dplyr::select(c("row_num","label",vars)) %>%
   unite("pattern_str",vars,sep="")
 
-out<-eval_ReID_risk(dat %>% dplyr::select(-row_num),
-                    ns=1,rsp=1,csp=1, verb=T)
+out<-eval_ReID_risk(dat %>% dplyr::select(-row_num,-label),
+                    ns=1,rsp=1,csp=1,verb=T,wt=pop_N)
 
 risk_dec %<>%
-  bind_rows(out$risk_summ %>% mutate(row_cnt=nrow(dat)))
+  bind_rows(out$risk_summ %>% mutate(row_cnt=nrow(dat),aki_cnt=sum(dat$label)))
 
 dat_ref<-out$est_freq %>%
   arrange(est_freq1,est_freq2)
 
-remain_col<-nrow(dat)
+remain_rw<-nrow(dat)
 col_add_try<-col_add
 incl_until<-1
-row_per_rm<-10
+row_per_rm<-1000
 risk_dec<-c()
-while(chk_pt<=0.0003 && remain_col>0){
+while(chk_pt<=0.0003 && remain_rw>0){
   dat_rm<-dat_ref %<>% slice(seq_len(row_per_rm))
   
   dat_i<-dat %>%
@@ -226,7 +228,7 @@ while(chk_pt<=0.0003 && remain_col>0){
               by="row_num") %>%
     dplyr::select(vars)
   
-  out<-eval_ReID_risk(dat_i,ns=1,rsp=nrow(dat_i)/nrow(dat),csp=1, verb=T)
+  out<-eval_ReID_risk(dat_i,ns=1,rsp=nrow(dat_i)/nrow(dat),csp=1,verb=T,wt=pop_N)
   
   risk_dec %<>%
     bind_rows(out$risk_summ %>% mutate(row_cnt=nrow(dat_i)))

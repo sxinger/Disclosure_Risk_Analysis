@@ -27,12 +27,12 @@ require_libraries(c("tidyr",
 h2o.init(nthreads=-1)
 
 #--load data
-i<-2 #...done
+i<-1 #...done
 dat<-read.csv(paste0("./data/Perspective_",i,".csv"))
 out<-sel_safe_col(dat,
                   col_incl=c("X0","X1","X2"),
-                  incl_inc=20,
-                  uni_thresh=0.0001,
+                  incl_inc=10,
+                  uni_thresh=0.00005,
                   wt=round(1/0.1*3))
 
 saveRDS(out,file=paste0("./output/ReID_risk_persp",i,".rda"))
