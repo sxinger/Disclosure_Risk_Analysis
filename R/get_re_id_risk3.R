@@ -27,7 +27,7 @@ require_libraries(c("tidyr",
 h2o.init(nthreads=-1)
 
 #--load data
-i<-1 #...done
+i<-1 #subject to change
 dat<-read.csv(paste0("./data/Perspective_",i,".csv"))
 out<-sel_safe_col(dat,
                   col_incl=c("X0","X1","X2"),
@@ -38,4 +38,22 @@ out<-sel_safe_col(dat,
 saveRDS(out,file=paste0("./output/ReID_risk_persp",i,".rda"))
 
 h2o.shutdown(prompt=F)
+
+
+#--collect scrubbed datasets
+i<-4 #subject to change
+col_sel<-data.frame(col_n=readRDS(paste0("./output/ReID_risk_persp",i,".rda"))$col_sel,
+                    stringsAsFactors = F) %>%
+  mutate(col_c=as.numeric(gsub("X","",col_n))) %>%
+  arrange(col_c)
+
+dat<-read.csv(paste0("./data/Perspective_",i,".csv")) %>%
+  dplyr::select(col_sel$col_n)
+
+write.csv(dat,file=paste0("./data/Perspective_scrb_",i,".csv"),row.names = F)
+  
+
+
+
+
 
