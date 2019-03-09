@@ -16,13 +16,14 @@ require_libraries<-function(package_list){
 
 ## procecutor attacker model risk functions
 #https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/modRisk.R#L138
-risk1<-function(l, p){
-  v=(1 - p)*l
+#1. estimates the number of sample uniques that are population unique
+risk1 <- function(l, p) {
+  v=(1 - p) * l
   exp(-v)
 } 
 
-
-risk2<-function(l, p){
-  v=(1-p)*l
-  (1-exp(-v))/v
+#2. estimates the number of correct matches of sample uniques
+risk2 <- function(l, p) {
+  v=(1 - p) * l
+  (1 - exp(-v))/v
 }

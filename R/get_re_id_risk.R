@@ -1,8 +1,16 @@
 #####use sdcMicro to assess re-identification risk####
-setwd("~/re-id_risk_eval/")
-
 rm(list=ls())
 gc()
+
+#turn off scientific notation
+options(scipen=999)
+
+#--global parameters
+#https://www.hcup-us.ahrq.gov/reports/statbriefs/sb225-Inpatient-US-Stays-Trends.jsp
+# wt<-sample(seq_len(round(pop_N/rsp)),nrow(.),replace=T)
+# wt<-round(1/0.1*3)
+# wt<-round(35000000*0.1*10/70000) #hospitalization counts/year * AKI incidence rate * 10 years/sample size
+# wt<-1  #https://github.com/sdcTools/sdcMicro/blob/9d4b05193ec5c4db0745bacb6ac470d6b358a363/R/freqCalc.r#L97
 
 ######### prepare #######
 #--require libraries
@@ -12,132 +20,40 @@ require_libraries(c("tidyr",
                     "dplyr",
                     "magrittr",
                     "sdcMicro",
-                    "h2o"))
-
-#--load selected variable list
-col_sel<-readRDS("./output/ReID_risk_var_inc1.rda")$col_sel
+                    "h2o",
+                    "scales"))
 
 #--initialize h2o cluster
 h2o.init(nthreads=-1)
 
-######### perspective 1 ########
 #--load data
-dat<-read.csv("./data/Perspective_1/Perspective_1.csv") %>%
-  dplyr::select(col_sel)
-# mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
+i<-1 #subject to change
+dat<-read.csv(paste0("./data/Perspective_",i,".csv"))
+out<-sel_safe_col(dat,
+                  col_incl=c("X0","X1","X2"),
+                  incl_inc=10,
+                  uni_thresh=0.00005,
+                  wt=round(1/0.1*3))
 
-#--remove sparse rows
-# sparse_bd<-0.995
-# dat %<>% 
-#   mutate(zero_infl=rowSums((.==0))/length(vars)) %>%
-#   filter(zero_infl < sparse_bd) %>%
-#   dplyr::select(-zero_infl)
+saveRDS(out,file=paste0("./output/ReID_risk_persp",i,".rda"))
 
-out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
-saveRDS(out,file="./output/ReID_risk_persp1.rda")
+h2o.shutdown(prompt=F)
 
 
-######### perspective 2 ########
-#--load data
-dat<-read.csv("./data/Perspective_2/Perspective_2.csv") %>%
-  dplyr::select(col_sel)
-# mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
+#--collect scrubbed datasets
+i<-4 #subject to change
+col_sel<-data.frame(col_n=readRDS(paste0("./output/ReID_risk_persp",i,".rda"))$col_sel,
+                    stringsAsFactors = F) %>%
+  mutate(col_c=as.numeric(gsub("X","",col_n))) %>%
+  arrange(col_c)
 
-#--remove sparse rows
-# sparse_bd<-0.995
-# dat %<>% 
-#   mutate(zero_infl=rowSums((.==0))/length(vars)) %>%
-#   filter(zero_infl < sparse_bd) %>%
-#   dplyr::select(-zero_infl)
+dat<-read.csv(paste0("./data/Perspective_",i,".csv")) %>%
+  dplyr::select(col_sel$col_n)
 
-out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
-saveRDS(out,file="./output/ReID_risk_persp2.rda")
-
-
-######### perspective 3 ########
-#--load data
-# dat_suffix<-c(1,2,3,5,7,30)
-dat_suffix<-1
-for(i in seq_along(dat_suffix)){
-  dat<-read.csv(paste0("./data/Perspective_3/CSV/Perspective_3_d0_p",
-                       dat_suffix[i],".csv")) %>%
-    dplyr::select(col_sel)
-  # mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
+write.csv(dat,file=paste0("./data/Perspective_scrb_",i,".csv"),row.names = F)
   
-  #--remove sparse rows
-  # sparse_bd<-0.995
-  # dat %<>% 
-  #   mutate(zero_infl=rowSums((.==0))/length(vars)) %>%
-  #   filter(zero_infl < sparse_bd) %>%
-  #   dplyr::select(-zero_infl)
-
-  out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
-  saveRDS(out,file=paste0("./output/ReID_risk_persp3_p",dat_suffix[i],".rda"))
-}
-
-######### perspective 4 ########
-#--load data
-# dat_suffix<-c(0,1,2,3,4)
-dat_suffix<-1
-for(i in seq_along(dat_suffix)){
-  dat<-read.csv(paste0("./data/Perspective_4/Perspective_4_d",
-                       dat_suffix[i],"_p1.csv")) %>%
-    dplyr::select(col_sel)
-  # mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
-  
-  #--remove sparse rows
-  # sparse_bd<-0.995
-  # dat %<>% 
-  #   mutate(zero_infl=rowSums((.==0))/length(vars)) %>%
-  #   filter(zero_infl < sparse_bd) %>%
-  #   dplyr::select(-zero_infl)
-  
-  out<-eval_ReID_risk(dat,ns=1,rsp=1,csp=1, verb=T)
-  saveRDS(out,file=paste0("./output/ReID_risk_persp4_d",dat_suffix[i],".rda"))
-}
-
-
-######### perspective 4a ########
-#--load data
-# dat_suffix<-c(0,1,2,3,4,5,6,7,8,9)
-# for(i in seq_along(dat_suffix)){
-#   dat<-read.csv(paste0("./data/Perspective_4a/",dat_suffix[i],
-#                        "/l1_train",dat_suffix[i],".csv"))
-#   # mutate_at(vars(starts_with("X")),funs(factor)) #group conversion to factor
-#   
-#   #--remove sparse rows
-#   # sparse_bd<-0.995
-#   # dat %<>% 
-#   #   mutate(zero_infl=rowSums((.==0))/length(vars)) %>%
-#   #   filter(zero_infl < sparse_bd) %>%
-#   #   dplyr::select(-zero_infl)
-#   
-#   out<-eval_ReID_risk(dat,ns=10,rsp=0.6,csp=0.8, verb=T)
-#   saveRDS(out,file=paste0("./output/ReID_risk_persp4a_f",dat_suffix[i],".rda"))
-# }
-
-
-#--close h2o cluster
-h2o.shutdown(prompt = FALSE)
 
 
 
-######### failed attemps #############
-# dat<-read.csv("./data/Perspective_1/Perspective_1.csv")
-# n<-nrow(dat)
-# vars<-colnames(dat)
-# form<-as.formula(paste0("~",paste(vars,collapse = "+")))
-# 
-# dat %<>% mutate(sampling_wt=n)
-# dat_sdc<-createSdcObj(test_dat,
-#                       keyVars=vars,
-#                       weightVar = "sampling_wt")
-# #
-# risk1<-modRisk(dat_sdc,
-#                formulaM=form)
-# Error in rep.int(rep.int(seq_len(nx), rep.int(rep.fac, nx)), orep) : 
-# invalid 'times' value
-#debug
-# x<-test_dat
-# grid<-data.table(expand.grid(lapply(1:20, function(t) unique((x[[vars[t]]])))))
-#expanded grid can be too large
+
+
